@@ -1,0 +1,3 @@
+# Keep text consistent between Mac development and Windows deployment.
+* text=auto eol=lf
+*.png binary

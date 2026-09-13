@@ -1,0 +1,30 @@
+# Downloaded dependencies and generated builds
+**/node_modules/
+**/dist/
+**/bin/
+**/obj/
+**/TestResults/
+
+# Local settings, secrets, and certificates
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Local pharmacy data and backups
+/backups/
+/data/
+*.dump
+*.bak
+
+# Machine-specific files
+.DS_Store
+.vs/
+.idea/
+*.user
+*.suo
+*.log
