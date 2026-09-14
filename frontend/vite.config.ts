@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     // During development, forward API requests to our local C# backend.
     proxy: {
-      '/api': 'http://localhost:5167',
+      '/api': process.env.PHARMACY_API_URL ?? 'http://localhost:5167',
     },
   },
 })

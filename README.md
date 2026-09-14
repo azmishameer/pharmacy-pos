@@ -4,14 +4,36 @@ A local-network pharmacy sales and inventory application, developed in small ste
 
 ## Current milestone
 
-The React welcome page calls the ASP.NET Core `/api/status` endpoint and displays
-whether the backend responded. No database, staff login, or sales functionality
-exists yet. This is a development starter, not a system ready for pharmacy use.
+The React catalogue page reads active medicine details from the development-only
+`/api/medicines` endpoint, with search and pagination. Empty tables show "No medicines yet".
+Local staff sign-in and server-enforced catalogue access are implemented; apply the
+new account migration and create your first admin using the instructions below.
+Medicine entry now supports manufacturer and dosage-form dropdowns, optional first-batch
+dates, and operator submissions for individual admin approval. Admin entries are
+automatically approved. See the medicine-entry guide and `CatalogueBatchesAndReview`
+migration below. Stock receiving, individual review, explicit MRP verification, expiry handling and
+admin disposal with three-month CSV history are implemented in the development preview.
+See [stock receiving setup](docs/stock-receiving.md). Catalogue editing and sales are
+not implemented. The database
+connectivity check remains available. The user has applied `InitialCatalogue` to the
+development database; setup instructions below cover a fresh checkout.
+This is a development starter, not a system ready for pharmacy use.
 
 ## Project folders
 
 - `frontend`: React and TypeScript browser interface, built with Vite.
 - `backend/PharmacyPos.Api`: C# API targeting .NET 10.
+
+## Project planning
+
+- [Agreed business rules](docs/business-rules.md)
+- [Medicine and stock database plan](docs/database-plan.md) — proposed records,
+  relationships, approval workflow, and implementation steps.
+- [First catalogue setup](docs/catalogue-setup.md) — what is implemented and how
+  to apply the first migration. No user database changes were made during its preparation.
+- [Local staff sign-in](docs/staff-sign-in.md) — account migration, first-admin setup,
+  sign-in, security behavior, and test instructions.
+- [Add medicine](docs/medicine-entry.md) — admin catalogue creation and its migration.
 
 ## Run locally
 
@@ -32,7 +54,8 @@ In the second terminal:
 dotnet run --project backend/PharmacyPos.Api --launch-profile http
 ```
 
-Open http://localhost:5173. The page should show **Backend connected**.
+Open http://localhost:5173. After the account migration and first-admin setup, sign in
+to see **Medicine catalogue** and, when empty, **No medicines yet**.
 Vite forwards `/api` requests to http://localhost:5167 during development.
 Keep both terminals running. Press Control+C to stop a server.
 After editing backend code, stop and restart the backend to load the changes.
@@ -43,6 +66,26 @@ process is still running; restart it from this project.
 
 These HTTP addresses are for development on this computer. Encrypted connections,
 automatic service startup, and local backup/restore will be configured before deployment.
+
+## Development database connection
+
+The backend uses PostgreSQL through Npgsql. Configure these .NET User Secrets
+for `backend/PharmacyPos.Api` on each development computer:
+
+- `ConnectionStrings:Pharmacy`: host, port, database, and username.
+- `Database:Password`: the database account password, stored separately.
+
+The current development database is `pharmacy_pos_dev` on localhost port 5432,
+with account `pharmacy_app`. User Secrets stay outside the repository but are
+not encrypted. Never paste their contents into logs, chat, or commits.
+
+After configuring the secrets, restart the backend and open
+http://localhost:5167/api/status/database. `Healthy` (HTTP 200) means a read-only
+`SELECT 1` query succeeded. `Unhealthy` (HTTP 503) means configuration is missing
+or the connection/query failed. Check that PostgreSQL is running and that the
+saved account, database, and password are correct. This endpoint is enabled only
+in Development and does not create tables or verify the application schema.
+The existing `/api/status` endpoint checks API availability independently.
 
 ## Verify changes
 
