@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PharmacyPos.Api.Data;
@@ -11,9 +12,11 @@ using PharmacyPos.Api.Data;
 namespace PharmacyPos.Api.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915134438_DiscountOffers")]
+    partial class DiscountOffers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -640,110 +643,6 @@ namespace PharmacyPos.Api.Migrations
                         });
                 });
 
-            modelBuilder.Entity("PharmacyPos.Api.Sales.Sale", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("Number")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Number"));
-
-                    b.Property<string>("OperatorId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("OperatorName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("RequestHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Snapshot")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("Total")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Number")
-                        .IsUnique();
-
-                    b.HasIndex("OperatorId", "CompletedAt");
-
-                    b.ToTable("sales", (string)null);
-                });
-
-            modelBuilder.Entity("PharmacyPos.Api.Sales.SalePayment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("Change")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<Guid>("SaleId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Tendered")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SaleId");
-
-                    b.ToTable("sale_payments", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_cash_payment", "\"Amount\" >= 0 AND \"Tendered\" >= \"Amount\" AND \"Change\" = \"Tendered\" - \"Amount\"");
-                        });
-                });
-
-            modelBuilder.Entity("PharmacyPos.Api.Sales.SaleStockMovement", b =>
-                {
-                    b.Property<Guid>("SaleId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ReceiptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("Quantity")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("SaleId", "ReceiptId");
-
-                    b.HasIndex("ReceiptId");
-
-                    b.ToTable("sale_stock_movements", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_sale_quantity", "\"Quantity\" > 0");
-                        });
-                });
-
             modelBuilder.Entity("PharmacyPos.Api.Stock.ReceivingMovement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1221,45 +1120,6 @@ namespace PharmacyPos.Api.Migrations
                     b.Navigation("Medicine");
                 });
 
-            modelBuilder.Entity("PharmacyPos.Api.Sales.Sale", b =>
-                {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                        .WithMany()
-                        .HasForeignKey("OperatorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PharmacyPos.Api.Sales.SalePayment", b =>
-                {
-                    b.HasOne("PharmacyPos.Api.Sales.Sale", "Sale")
-                        .WithMany("Payments")
-                        .HasForeignKey("SaleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Sale");
-                });
-
-            modelBuilder.Entity("PharmacyPos.Api.Sales.SaleStockMovement", b =>
-                {
-                    b.HasOne("PharmacyPos.Api.Stock.StockReceipt", "Receipt")
-                        .WithMany()
-                        .HasForeignKey("ReceiptId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("PharmacyPos.Api.Sales.Sale", "Sale")
-                        .WithMany()
-                        .HasForeignKey("SaleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Receipt");
-
-                    b.Navigation("Sale");
-                });
-
             modelBuilder.Entity("PharmacyPos.Api.Stock.ReceivingMovement", b =>
                 {
                     b.HasOne("PharmacyPos.Api.Catalogue.MedicineBatch", "Batch")
@@ -1374,11 +1234,6 @@ namespace PharmacyPos.Api.Migrations
             modelBuilder.Entity("PharmacyPos.Api.Sales.ChargeRule", b =>
                 {
                     b.Navigation("Medicines");
-                });
-
-            modelBuilder.Entity("PharmacyPos.Api.Sales.Sale", b =>
-                {
-                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("PharmacyPos.Api.Stock.StockReceipt", b =>

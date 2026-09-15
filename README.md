@@ -13,8 +13,11 @@ dates, and operator submissions for individual admin approval. Admin entries are
 automatically approved. See the medicine-entry guide and `CatalogueBatchesAndReview`
 migration below. Stock receiving, individual review, explicit MRP verification, expiry handling and
 admin disposal with three-month CSV history are implemented in the development preview.
-See [stock receiving setup](docs/stock-receiving.md). Catalogue editing and sales are
-not implemented. The database
+See [stock receiving setup](docs/stock-receiving.md). The [operator sales counter](docs/sales-counter.md) now supports a cart with admin-configured percentage and fixed charges. Apply the `CartCharges`
+migration and restart the backend to enable charge settings. Admin discount offers
+require the additional `DiscountOffers` migration. [Cash checkout](docs/cash-checkout.md)
+adds completed sales, cash/change, stock deduction and saved printable receipts; apply
+`CashCheckout` to enable it. Returns, non-cash payments and catalogue editing remain pending. The database
 connectivity check remains available. The user has applied `InitialCatalogue` to the
 development database; setup instructions below cover a fresh checkout.
 This is a development starter, not a system ready for pharmacy use.

@@ -20,7 +20,7 @@ export function ReceiveStock({ medicineId, original, isAdmin, onCancel, onSaved 
   const [boxesPerCarton, setBoxesPerCarton] = useState(original ? String(original.boxesPerCarton) : '')
   const [counts, setCounts] = useState({ pieces: String(original?.pieces ?? 0), strips: String(original?.strips ?? 0), boxes: String(original?.boxes ?? 0), cartons: String(original?.cartons ?? 0) })
   const [mrpAmount, setMrpAmount] = useState(original ? String(original.mrpAmount) : '')
-  const [mrpUnit, setMrpUnit] = useState(original?.mrpUnit ?? 'Piece')
+  const [mrpUnit, setMrpUnit] = useState(original?.mrpUnit ?? '')
   const [verifyMrp, setVerifyMrp] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -84,7 +84,7 @@ export function ReceiveStock({ medicineId, original, isAdmin, onCancel, onSaved 
         {expiryDate && expiryDate < today && <p className="auth-error">This batch is expired. After approval it will appear as unsellable stock.</p>}
         <h3>Packaging on this delivery</h3>
         <p className="field-help">Copy pack sizes from the label. These sizes are saved with this entry.</p>
-        {['Tablet', 'Capsule'].includes(medicine.baseUnit) && <p><label><input type="checkbox" checked={hasStrips} onChange={e => { setHasStrips(e.target.checked); setCounts({ ...counts, strips: '0' }); setMrpUnit('Piece') }} /> This medicine is packed in strips</label></p>}
+        {['Tablet', 'Capsule'].includes(medicine.baseUnit) && <p><label><input type="checkbox" checked={hasStrips} onChange={e => { setHasStrips(e.target.checked); setCounts({ ...counts, strips: '0' }); setMrpUnit('') }} /> This medicine is packed in strips</label></p>}
         <div className="entry-grid">
           {hasStrips ? <><NumberField id="units-strip" label={`${medicine.baseUnit}s per strip`} value={unitsPerStrip} set={setUnitsPerStrip} min={1} /><NumberField id="strips-box" label="Strips per box" value={stripsPerBox} set={setStripsPerBox} min={1} /></> : <NumberField id="units-box" label={`${medicine.baseUnit}s per box`} value={unitsPerBox} set={setUnitsPerBox} min={1} />}
           <NumberField id="boxes-carton" label="Boxes per carton (required for cartons)" value={boxesPerCarton} set={setBoxesPerCarton} min={1} required={Number(counts.cartons) > 0} />
@@ -98,9 +98,9 @@ export function ReceiveStock({ medicineId, original, isAdmin, onCancel, onSaved 
         <h3>Printed MRP</h3>
         <div className="entry-grid">
           <div className="field"><label htmlFor="printed-mrp">MRP amount (৳)</label><input id="printed-mrp" type="number" min="0.01" max="1000000000" step="0.01" required value={mrpAmount} onChange={e => setMrpAmount(e.target.value)} /></div>
-          <div className="field"><label htmlFor="mrp-unit">MRP is for</label><select id="mrp-unit" value={mrpUnit} onChange={e => setMrpUnit(e.target.value)}><option value="Piece">One {medicine.baseUnit.toLowerCase()}</option>{hasStrips && <option value="Strip">One strip</option>}<option value="Box">One box</option></select></div>
+          <div className="field"><label htmlFor="mrp-unit">MRP is for</label><select id="mrp-unit" required value={mrpUnit} onChange={e => setMrpUnit(e.target.value)}><option value="">Select the unit printed beside the MRP</option><option value="Piece">One {medicine.baseUnit.toLowerCase()}</option>{hasStrips && <option value="Strip">One strip</option>}<option value="Box">One box</option></select></div>
         </div>
-        {mrpDenominator > 0 && Number(mrpAmount) > 0 && <p className="field-help">৳{Number(mrpAmount).toFixed(2)} ÷ {mrpDenominator} {medicine.baseUnit.toLowerCase()}s. Estimated value of this delivery at MRP: ৳{(Number(mrpAmount) * total / mrpDenominator).toFixed(2)}. This is not the purchase cost.</p>}
+        {mrpUnit && mrpDenominator > 0 && Number(mrpAmount) > 0 && <p className="field-help">৳{Number(mrpAmount).toFixed(2)} ÷ {mrpDenominator} {medicine.baseUnit.toLowerCase()}s. Estimated value of this delivery at MRP: ৳{(Number(mrpAmount) * total / mrpDenominator).toFixed(2)}. This is not the purchase cost.</p>}
         {isAdmin && <p><label><input type="checkbox" checked={verifyMrp} onChange={e => setVerifyMrp(e.target.checked)} /> I checked this printed MRP against the packaging</label></p>}
         {original && <div className="field"><label htmlFor="correction-reason">Reason for correction</label><input id="correction-reason" required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></div>}
         <div className="entry-actions"><button type="button" onClick={onCancel}>Cancel</button><button type="submit" className="primary">{busy ? 'Saving…' : isAdmin ? 'Save stock entry' : 'Submit stock for approval'}</button></div>

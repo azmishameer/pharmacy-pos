@@ -1,6 +1,7 @@
 using PharmacyPos.Api.Health;
 using PharmacyPos.Api.Catalogue;
 using PharmacyPos.Api.Stock;
+using PharmacyPos.Api.Sales;
 using PharmacyPos.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -55,6 +56,10 @@ app.UseRateLimiter();
 app.MapStaffAuthentication();
 app.MapCataloguePreview();
 app.MapStockReceiving();
+app.MapSalesCounter();
+app.MapChargeRules();
+app.MapOfferRules();
+app.MapCashCheckout();
 
 // API availability is separate from the database connection check.
 app.MapGet("/api/status", () => Results.Ok(new { status = "ok" }));

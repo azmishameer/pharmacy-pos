@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReceiveStock } from './ReceiveStock'
+import { CorrectMrp, MrpHistory } from './CorrectMrp'
 import { packBreakdown, stockExport, stockGet, stockPost } from './stockApi'
 import type { Receipt } from './stockApi'
 
-type Lot = { lotId: string; brandName: string; manufacturer: string; batchNumber: string; expiryDate: string; baseUnit: string; receivedUnits: number; sellableUnits: number; availability: string; unitsPerStrip: number; unitsPerBox: number; mrpAmount: number; mrpUnit: string; mrpUnits: number; mrpVerified: boolean }
+type Lot = { lotId: string; brandName: string; manufacturer: string; batchNumber: string; expiryDate: string; baseUnit: string; receivedUnits: number; onHandUnits: number; sellableUnits: number; availability: string; unitsPerStrip: number; unitsPerBox: number; mrpAmount: number; mrpUnit: string; mrpUnits: number; mrpVerified: boolean }
 type Disposal = { id: string; lotId: string; brandName: string; batchNumber: string; expiryDate: string; quantity: number; baseUnit: string; reason: string; disposedBy: string; disposedAt: string; visibleUntil: string }
 type List<T> = { items: T[]; page: number; hasMore: boolean }
 
@@ -84,6 +85,7 @@ function ReceiptDetails({ row }: { row: Receipt }) {
 function ReceiptCard({ row, isAdmin, reload, onCorrect }: { row: Receipt; isAdmin: boolean; reload: () => void; onCorrect: (row: Receipt) => void }) {
   const [note, setNote] = useState(''), [verified, setVerified] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [history, setHistory] = useState<Receipt[] | null>(null)
+  const [correctingMrp, setCorrectingMrp] = useState(false)
   async function act(action: string) {
     setBusy(true); setError('')
     try {
@@ -104,20 +106,22 @@ function ReceiptCard({ row, isAdmin, reload, onCorrect }: { row: Receipt; isAdmi
       {isAdmin && row.status === 'PendingApproval' && <div className="field"><label htmlFor={`stock-note-${row.id}`}>Review note (required to return)</label><input id={`stock-note-${row.id}`} maxLength={1000} value={note} onChange={e => setNote(e.target.value)} /></div>}
       <div className="entry-actions">
         <button onClick={() => void act('history')}>View entry history</button>
+        {isAdmin && row.status === 'Approved' && <button onClick={() => setCorrectingMrp(v => !v)}>Correct MRP</button>}
         {['PendingApproval', 'Returned'].includes(row.status) && <button onClick={() => onCorrect(row)}>Correct entry</button>}
         {isAdmin && row.status === 'PendingApproval' && <><button onClick={() => void act('return')}>Return for correction</button><button className="primary" onClick={() => void act('approve')}>Approve stock</button></>}
         {isAdmin && row.status === 'Approved' && !row.mrpVerified && <button className="primary" disabled={!verified} onClick={() => void act('verify')}>Verify MRP</button>}
       </div>
     </fieldset>
-    {history && <details open><summary>Saved revision history</summary>{history.map(r => <div className="history-entry" key={r.id}><ReceiptDetails row={r} /></div>)}</details>}
+    {correctingMrp && <CorrectMrp row={row} onSaved={reload} onCancel={() => setCorrectingMrp(false)} />}
+    {history && <details open><summary>Saved revision history</summary>{history.map(r => <div className="history-entry" key={r.id}><ReceiptDetails row={r} /></div>)}{isAdmin && <MrpHistory receiptId={row.receiptId} />}</details>}
   </article>
 }
 function InventoryLot({ lot, isAdmin, reload }: { lot: Lot; isAdmin: boolean; reload: () => void }) {
   const [disposing, setDisposing] = useState(false)
   return <article className="submission-card">
     <h3>{lot.brandName} · Batch {lot.batchNumber}</h3><p>{lot.manufacturer} · Expires {lot.expiryDate}</p>
-    <p><strong>{lot.receivedUnits} {lot.baseUnit.toLowerCase()}s on hand</strong> · {lot.sellableUnits} sellable</p>
-    <p>{packBreakdown(lot.receivedUnits, lot.unitsPerBox, lot.unitsPerStrip, lot.baseUnit)}</p>
+    <p><strong>{lot.onHandUnits} {lot.baseUnit.toLowerCase()}s on hand</strong> · {lot.sellableUnits} sellable</p>
+    <p>{packBreakdown(lot.onHandUnits, lot.unitsPerBox, lot.unitsPerStrip, lot.baseUnit)}</p>
     <p className={lot.sellableUnits === 0 ? 'auth-error' : 'save-confirmation'}>{lot.availability}</p>
     <p>{lot.mrpVerified ? 'Verified' : 'Recorded, unverified'} MRP: ৳{lot.mrpAmount.toFixed(2)} per {lot.mrpUnit === 'Piece' ? lot.baseUnit.toLowerCase() : lot.mrpUnit.toLowerCase()}</p>
     {isAdmin && lot.availability.startsWith('Expired') && <button onClick={() => setDisposing(v => !v)}>Record physical disposal</button>}
@@ -138,7 +142,7 @@ function DisposeForm({ lot, reload }: { lot: Lot; reload: () => void }) {
   return <form onSubmit={submit}><fieldset disabled={busy}>
     <legend>Remove physically disposed stock</legend>
     <div className="field"><label htmlFor={`disposal-reason-${lot.lotId}`}>Disposal reason or reference</label><input id={`disposal-reason-${lot.lotId}`} required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></div>
-    <p><label><input type="checkbox" required checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> I have physically disposed of all {lot.receivedUnits} {lot.baseUnit.toLowerCase()}s in this stock lot</label></p>
+    <p><label><input type="checkbox" required checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> I have physically disposed of all {lot.onHandUnits} {lot.baseUnit.toLowerCase()}s in this stock lot</label></p>
     <p className="field-help">This removes the quantity from inventory. Its disposal record can be viewed and exported for three calendar months.</p>
     {error && <p role="alert" className="auth-error">{error}</p>}<button type="submit" className="primary">{busy ? 'Saving…' : 'Confirm disposal'}</button>
   </fieldset></form>

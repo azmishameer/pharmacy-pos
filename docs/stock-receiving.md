@@ -122,3 +122,29 @@ Browser verification passed using a disposable admin account: received an expire
 mixed-pack delivery (2 cartons × 20 boxes × 30 tablets + 1 box + 2 strips + 5 tablets
 = 1,255), verified its recorded MRP, confirmed automatic approval with zero sellable
 stock, recorded physical disposal and checked that the inventory lot disappeared.
+
+## Correct an approved MRP entry
+
+Admins can now select **Correct MRP** on an approved entry in **Receiving & review**.
+This corrects a recorded amount/unit mistake, such as 600 per tablet instead of 600
+per box. It requires a reason and explicit confirmation against the packaging. The
+form shows the resulting per-unit rate before saving. New receiving forms also
+require an explicit MRP unit choice instead of defaulting to an individual unit.
+
+The correction changes only the approved lot's current recorded MRP and verification
+metadata. It does not post a movement, add stock, change pack conversions or alter
+any other lot's price. Before/after amounts, units and denominators, reason, admin
+and time are retained as an `MrpCorrected` stock review event, visible under **View
+entry history → MRP correction history**. Existing receiving/approval history stays
+intact; the original price can be recovered from that correction audit. There is no
+new database migration. A conditional current-price check prevents stale overwrites,
+and an event request ID makes unchanged retries idempotent. Disposed and unapproved
+lots cannot be corrected here. This is an entry-error correction, not an implementation
+of official effective-dated price revisions or historical sale repricing.
+
+Backend checks cover role/CSRF protection, explicit verification, stale/repeated
+requests, saved before/after history and unchanged stock quantities/movement count.
+
+With the `CashCheckout` migration applied, inventory and counter quantities subtract
+completed sale movements. Receiving history keeps the original delivered amount.
+Expired disposal removes only the remaining unsold units.

@@ -28,6 +28,7 @@ public static class StockReceiving
     {
         if (!app.Environment.IsDevelopment()) return;
         app.MapStockViews();
+        app.MapMrpCorrection();
         app.MapPost("/api/stock/receipts", Receive).RequireAuthorization("Staff");
         app.MapPost("/api/stock/receipts/{id:guid}/review", Review).RequireAuthorization("AdminOnly");
         app.MapPost("/api/stock/receipts/{id:guid}/verify-mrp", Verify).RequireAuthorization("AdminOnly");

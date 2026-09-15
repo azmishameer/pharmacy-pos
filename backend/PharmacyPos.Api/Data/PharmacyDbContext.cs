@@ -3,12 +3,17 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using PharmacyPos.Api.Catalogue;
 using PharmacyPos.Api.Stock;
+using PharmacyPos.Api.Sales;
 
 namespace PharmacyPos.Api.Data;
 
 public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> options)
     : IdentityDbContext<IdentityUser>(options)
 {
+    public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleStockMovement> SaleStockMovements => Set<SaleStockMovement>();
+    public DbSet<OfferRule> OfferRules => Set<OfferRule>();
+    public DbSet<ChargeRule> ChargeRules => Set<ChargeRule>();
     public DbSet<Manufacturer> Manufacturers => Set<Manufacturer>();
     public DbSet<GenericIngredient> GenericIngredients => Set<GenericIngredient>();
     public DbSet<DosageForm> DosageForms => Set<DosageForm>();
@@ -28,6 +33,9 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.MapStock();
+        modelBuilder.MapCharges();
+        modelBuilder.MapOffers();
+        modelBuilder.MapSaleData();
         var manufacturer = modelBuilder.Entity<Manufacturer>();
         manufacturer.ToTable("manufacturers", t => t.HasCheckConstraint("ck_manufacturer_name", "length(btrim(name)) > 0"));
         manufacturer.HasKey(x => x.Id);

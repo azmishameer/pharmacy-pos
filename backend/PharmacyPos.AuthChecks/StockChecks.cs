@@ -55,6 +55,25 @@ public static class StockChecks
         // Different printed prices for separate lots must never rewrite the first lot.
         var own = input with { RequestId = Guid.NewGuid(), Supplier = "Supplier", Pieces = 1, Strips = 0, Boxes = 0, Cartons = 0, MrpAmount = 21m, MrpUnit = "Piece", VerifyMrp = true };
         Check((await Post(admin, "/api/stock/receipts", own)).StatusCode == HttpStatusCode.Created, "admin entry autoapproved");
+        // Correct an approved price without receiving stock again or changing another lot.
+        var priceFix = new StockMrpCorrection.Input(Guid.NewGuid(), own.RequestId, 21m, "Piece", 1, 600m, "Box", "Box price was entered per tablet", true);
+        var priceUrl = $"/api/stock/receipts/{own.RequestId}/correct-mrp";
+        Check((await Post(op, priceUrl, priceFix)).StatusCode == HttpStatusCode.Forbidden, "operator cannot correct approved MRP");
+        Check((await admin.PostAsJsonAsync(priceUrl, priceFix)).StatusCode == HttpStatusCode.BadRequest, "MRP correction requires CSRF");
+        Check((await Post(admin, priceUrl, priceFix with { CheckedPackaging = false })).StatusCode == HttpStatusCode.BadRequest, "correction needs packaging confirmation");
+        var fixes = await Task.WhenAll(Post(admin, priceUrl, priceFix), Post(admin, priceUrl, priceFix));
+        Check(fixes.All(x => x.IsSuccessStatusCode), "MRP correction retry safe");
+        Check((await Post(admin, priceUrl, priceFix with { Amount = 700m })).StatusCode == HttpStatusCode.Conflict, "changed correction retry blocked");
+        Check((await Post(admin, priceUrl, priceFix with { RequestId = Guid.NewGuid() })).StatusCode == HttpStatusCode.Conflict, "stale MRP cannot overwrite correction");
+        var priceHistory = await admin.GetFromJsonAsync<JsonElement>($"/api/stock/receipts/{own.RequestId}/mrp-history");
+        Check(priceHistory.GetArrayLength() == 1 && priceHistory[0].GetProperty("change").GetProperty("oldAmount").GetDecimal() == 21m
+            && priceHistory[0].GetProperty("change").GetProperty("newUnits").GetInt32() == 30, "price correction before and after retained once");
+        using (var scope = services.CreateScope()) {
+            var db = scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+            var lot = await db.StockReceiptRevisions.SingleAsync(x => x.Id == own.RequestId);
+            Check(lot.MrpAmount == 600m && lot.MrpUnit == "Box" && lot.MrpUnits == 30 && lot.TotalUnits == 1 && lot.MrpVerifiedAt != null, "correct MRP preserves quantity");
+            Check(await db.ReceivingMovements.CountAsync(x => x.ReceiptId == own.RequestId) == 1, "price correction does not receive again");
+        }
         var hidden = input with { RequestId = Guid.NewGuid(), BatchNumber = "Pending extra", Pieces = 0 };
         Check((await Post(op, "/api/stock/receipts", hidden)).StatusCode == HttpStatusCode.Created, "another entry remains pending");
         // Correct/reenter the same logical line. The old revision must never be approvable.

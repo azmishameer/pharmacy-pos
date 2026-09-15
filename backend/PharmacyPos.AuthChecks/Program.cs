@@ -140,6 +140,11 @@ using (var scope = entryFactory.Services.CreateScope()) {
 Console.WriteLine("PASS: operator submission, hidden pending catalogue, batch dates, review authorization, rejection, reentry, and review attribution.");
 
 await StockChecks.Run(adminClient, operatorClient, entryFactory.Services, medicine.requestId);
+using var anonymousSalesClient = entryFactory.CreateClient();
+await SalesChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await ChargeChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId, pendingMedicine.requestId);
+await OfferChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await CheckoutChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 
 static async Task<HttpResponseMessage> PostReview(HttpClient client, string url, bool approve, string? note = null) {
     var session = await Session(client);

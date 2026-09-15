@@ -199,3 +199,57 @@ quantity tracking.
   reason stock left inventory.
 - The implemented receiving/expiry/disposal milestone and its current limits are in
   [stock receiving](stock-receiving.md). Earlier sections describe the full planned system.
+
+## Cart charges clarification (September 15, 2026)
+
+- Admins configure named charges such as VAT, tax, or other
+  charges. Operators cannot create or change these rules or override cart charges.
+- A charge can apply to all medicines or selected medicines. The same charge must
+  be counted only once if a medicine matches both scopes.
+- Catalogue medicine prices continue to show printed MRP without these additions.
+  The cart shows each medicine's discount, applicable named charges, and final price;
+  the receipt must also itemize these amounts.
+- Percentage and fixed-amount charge options are available in the cart preview. For fixed charges, the
+  admin chooses per individual base unit or once per medicine in the cart.
+  Per-unit charges scale with total base units after pack conversion. Once-per-medicine
+  charges apply once across that medicine's cart rows, including different packs or lots.
+- No statutory rates have been specified or seeded. Charge settings and cart
+  calculations and offers are implemented; checkout and printed receipts remain pending.
+- Charges start immediately and continue until stopped. To amend a rule, stop it
+  and create its replacement; creation and stopping retain admin attribution.
+- Percentage charges do not compound with other charges. The preview calculates
+  them on the discounted medicine amount before final rounding.
+- Once-per-medicine amounts are allocated across that medicine's rows in proportion
+  to base-unit quantities. Exact fractions are retained until final whole-taka rounding.
+
+## Offer preview implementation (September 15, 2026)
+
+- Admins create medicine or whole-sale offers and stop them. Changes use stop and
+  replace, preserving the old offer and actor/time. Operators cannot override offers.
+- Start/end dates use Asia/Dhaka calendar dates, inclusive. An absent end date is
+  indefinite; stopping takes precedence. Equal medicine discounts use earliest
+  creation time, then stable offer ID. An exact alternative-total tie keeps the
+  medicine strategy. These deterministic defaults do not alter customer totals.
+- Whole-sale minimum MRP subtotal is admin-configurable, zero for all bills. This
+  is the implementation default pending the user's optional eligibility preference.
+  Eligibility uses the original subtotal before discounts and charges.
+- Fixed medicine discounts store admin-entered piece/strip/box conversion and
+  prorate by individual quantity. Discounts are capped at each line's MRP amount.
+- Whole-sale discounts are capped at the subtotal and allocated across lines
+  proportionally by original MRP, using exact fractions. Only the cheapest final
+  unrounded strategy, including charges, applies. No medicine/whole-sale stacking.
+- Cart responses include applied offer IDs and names, discounts, charges and final
+  row prices. Persisted sale/receipt snapshots and refund allocation remain pending
+  for checkout; no stock deductions or completed-sale records are created yet.
+
+## Cash checkout implementation (September 16, 2026)
+
+- Cash checkout is implemented with received amount, change, atomic stock deductions
+  and saved receipts. Card, bKash and Nagad remain future payment methods.
+- Payments have separate records so future methods can extend the sales model.
+- Unique checkout IDs make identical retries return the same completed receipt.
+- Inventory and disposal use remaining stock; original receiving history is preserved.
+- Receipts snapshot prices/offers/charges and rounding at completion. Later rule
+  changes do not recalculate them. Admins can view all receipts; other staff view own.
+- Returns/refunds and prescription-record controls remain to be designed. See
+  [cash checkout](cash-checkout.md) for implementation limits.
