@@ -44,7 +44,7 @@ public static class StockViews
             var n = page ?? 1; var term = search?.Trim() ?? "";
             if (n is < 1 or > 10000 || term.Length > 100 || availability is not (null or "all" or "available" or "held")) return Results.BadRequest();
             var today = StockReceiving.ShopToday();
-            var query = db.ReceivingMovements.AsNoTracking().Where(x => !db.StockDisposals.Any(d => d.ReceiptId == x.ReceiptId) && x.Quantity > (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0));
+            var query = db.ReceivingMovements.AsNoTracking().Where(x => !db.StockDisposals.Any(d => d.ReceiptId == x.ReceiptId) && x.Quantity + (db.ReturnedItems.Where(i => i.ReceiptId == x.ReceiptId && i.Status == "Restocked").Sum(i => (long?)i.Quantity) ?? 0) > (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0));
             if (availability == "available") query = query.Where(x => x.Batch.ExpiryDate >= today && x.Revision.MrpVerifiedAt != null && x.Revision.Medicine.IsActive && x.Revision.Medicine.ReviewStatus == CatalogueReviewStatus.Approved);
             if (availability == "held") query = query.Where(x => x.Batch.ExpiryDate < today || x.Revision.MrpVerifiedAt == null || !x.Revision.Medicine.IsActive || x.Revision.Medicine.ReviewStatus != CatalogueReviewStatus.Approved);
             if (term.Length > 0) query = query.Where(x => x.Revision.Medicine.BrandName.ToUpper().Contains(term.ToUpper()));
@@ -52,8 +52,8 @@ public static class StockViews
                 .Select(x => new {
                     lotId = x.ReceiptId, x.BatchId, x.Batch.BatchNumber, x.Batch.ExpiryDate,
                     brandName = x.Revision.Medicine.BrandName, manufacturer = x.Revision.Medicine.Manufacturer.Name,
-                    baseUnit = x.Revision.BaseUnit.ToString(), receivedUnits = x.Quantity, onHandUnits = x.Quantity - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0),
-                    sellableUnits = x.Batch.ExpiryDate >= today && x.Revision.MrpVerifiedAt != null && x.Revision.Medicine.IsActive && x.Revision.Medicine.ReviewStatus == CatalogueReviewStatus.Approved ? x.Quantity - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0) : 0,
+                    baseUnit = x.Revision.BaseUnit.ToString(), receivedUnits = x.Quantity, onHandUnits = x.Quantity + (db.ReturnedItems.Where(i => i.ReceiptId == x.ReceiptId && i.Status == "Restocked").Sum(i => (long?)i.Quantity) ?? 0) - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0),
+                    sellableUnits = x.Batch.ExpiryDate >= today && x.Revision.MrpVerifiedAt != null && x.Revision.Medicine.IsActive && x.Revision.Medicine.ReviewStatus == CatalogueReviewStatus.Approved ? x.Quantity + (db.ReturnedItems.Where(i => i.ReceiptId == x.ReceiptId && i.Status == "Restocked").Sum(i => (long?)i.Quantity) ?? 0) - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0) : 0,
                     availability = x.Batch.ExpiryDate < today ? "Expired — cannot be sold" : !x.Revision.Medicine.IsActive || x.Revision.Medicine.ReviewStatus != CatalogueReviewStatus.Approved ? "Medicine inactive" : x.Revision.MrpVerifiedAt == null ? "MRP verification pending" : "Available",
                     x.Revision.UnitsPerStrip, x.Revision.UnitsPerBox, x.Revision.MrpAmount, x.Revision.MrpUnit, x.Revision.MrpUnits,
                     mrpVerified = x.Revision.MrpVerifiedAt != null

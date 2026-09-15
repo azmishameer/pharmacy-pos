@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Returns;
 using PharmacyPos.Api.Health;
 using PharmacyPos.Api.Catalogue;
 using PharmacyPos.Api.Stock;
@@ -60,6 +61,7 @@ app.MapSalesCounter();
 app.MapChargeRules();
 app.MapOfferRules();
 app.MapCashCheckout();
+app.MapReturnEndpoints();
 
 // API availability is separate from the database connection check.
 app.MapGet("/api/status", () => Results.Ok(new { status = "ok" }));

@@ -61,7 +61,8 @@ competing checkouts for the last units, stale prices, expiry after quoting, unch
 receiving history, remaining inventory and disposal of only the unsold remainder.
 Frontend build and lint pass. Real pharmacy records are not used for these tests.
 
-Returns, voids, refunds, split payments, non-cash payments, cash drawer accounting,
+[Complete-item returns and refunds](returns-and-refunds.md) are now supported with
+the `ReturnsAndRefunds` migration. Voids, split payments, non-cash payments, cash drawer accounting,
 printer-specific thermal layouts, pharmacy branding and prescription-record handling
 remain outside this milestone. Receipts currently use the generic Pharmacy POS heading.
 

@@ -148,3 +148,7 @@ requests, saved before/after history and unchanged stock quantities/movement cou
 With the `CashCheckout` migration applied, inventory and counter quantities subtract
 completed sale movements. Receiving history keeps the original delivered amount.
 Expired disposal removes only the remaining unsold units.
+
+With `ReturnsAndRefunds`, admin-approved returns credit the original lot exactly once.
+Held returns remain in separate inventory; main disposal includes only approved
+restocked returns. See [returns and refunds](returns-and-refunds.md).

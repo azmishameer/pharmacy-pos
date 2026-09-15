@@ -253,3 +253,16 @@ quantity tracking.
   changes do not recalculate them. Admins can view all receipts; other staff view own.
 - Returns/refunds and prescription-record controls remain to be designed. See
   [cash checkout](cash-checkout.md) for implementation limits.
+
+## Returns and refunds (September 16, 2026)
+
+- Admins and operators may process returns/refunds without approval, with original
+  receipt reference, item quantities, refund amount, reason, staff identity and time.
+- Only complete receipt rows can be returned: two purchased strips means both,
+  three individual tablets means all three. Different receipt rows may be retained.
+- Refunds use original paid amounts, including discounts, charges and allocated
+  rounding; returning every row refunds exactly the original bill total. See
+  [allocation details](returns-and-refunds.md) for deterministic paisa allocation.
+- Returned goods remain separate and unsellable. Only admin inspection/approval can
+  restock a full returned item. Expired goods cannot become sellable. Held goods may
+  be disposed with an admin audit record and three-month disposal CSV availability.

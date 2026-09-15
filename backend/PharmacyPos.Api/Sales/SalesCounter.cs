@@ -16,7 +16,7 @@ public static class SalesCounter
     public sealed record CartLine(Guid LotId, int Quantity, string Unit);
     public sealed record CartInput(List<CartLine>? Lines);
     public static IQueryable<ReceivingMovement> Eligible(PharmacyDbContext db, DateOnly today) =>
-        db.ReceivingMovements.AsNoTracking().Where(x => x.Quantity > (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0) && x.Revision.Status == ReceivingStatus.Approved
+        db.ReceivingMovements.AsNoTracking().Where(x => x.Quantity + (db.ReturnedItems.Where(i => i.ReceiptId == x.ReceiptId && i.Status == "Restocked").Sum(i => (long?)i.Quantity) ?? 0) > (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0) && x.Revision.Status == ReceivingStatus.Approved
             && x.Revision.MrpVerifiedAt != null && x.Revision.Medicine.IsActive && x.Revision.Medicine.ReviewStatus == CatalogueReviewStatus.Approved
             && x.Batch.ExpiryDate >= today && !db.StockDisposals.Any(d => d.ReceiptId == x.ReceiptId));
 
@@ -40,7 +40,7 @@ public static class SalesCounter
                         lotId = x.ReceiptId, medicineId = x.Revision.MedicineId, brandName = x.Revision.Medicine.BrandName,
                         manufacturer = x.Revision.Medicine.Manufacturer.Name, dosageForm = x.Revision.Medicine.DosageForm.Name,
                         classification = x.Revision.Medicine.Classification.ToString(), baseUnit = x.Revision.BaseUnit.ToString(),
-                        x.Batch.BatchNumber, x.Batch.ExpiryDate, availableUnits = x.Quantity - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0),
+                        x.Batch.BatchNumber, x.Batch.ExpiryDate, availableUnits = x.Quantity + (db.ReturnedItems.Where(i => i.ReceiptId == x.ReceiptId && i.Status == "Restocked").Sum(i => (long?)i.Quantity) ?? 0) - (db.SaleStockMovements.Where(m => m.ReceiptId == x.ReceiptId).Sum(m => (long?)m.Quantity) ?? 0),
                         x.Revision.UnitsPerStrip, x.Revision.UnitsPerBox, x.Revision.MrpAmount, x.Revision.MrpUnit, x.Revision.MrpUnits,
                         ingredients = x.Revision.Medicine.Ingredients.OrderBy(i => i.DisplayOrder).Select(i => new { name = i.GenericIngredient.Name, i.StrengthValue, i.StrengthUnit }).ToList()
                     }).ToListAsync(ct);
@@ -79,6 +79,9 @@ public static class SalesCounter
         if (stock.Count != ids.Length) throw new PricingFailure(409, "A batch is no longer available, has expired, or needs MRP verification. Remove it and refresh the stock list.");
         var sold = await db.SaleStockMovements.Where(m => ids.Contains(m.ReceiptId)).GroupBy(m => m.ReceiptId)
             .Select(g => new { Id = g.Key, Quantity = g.Sum(m => m.Quantity) }).ToDictionaryAsync(x => x.Id, x => x.Quantity, ct);
+        var restored = await db.ReturnedItems.Where(i => ids.Contains(i.ReceiptId) && i.Status == "Restocked").GroupBy(i => i.ReceiptId)
+            .Select(g => new { Id = g.Key, Quantity = g.Sum(i => i.Quantity) }).ToListAsync(ct);
+        foreach (var r in restored) sold[r.Id] = sold.GetValueOrDefault(r.Id) - r.Quantity;
         var used = new Dictionary<Guid, long>();
         var lines = new List<object>();
         var charges = await db.ChargeRules.AsNoTracking().Include(x => x.Medicines)

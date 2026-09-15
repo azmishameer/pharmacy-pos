@@ -17,7 +17,9 @@ See [stock receiving setup](docs/stock-receiving.md). The [operator sales counte
 migration and restart the backend to enable charge settings. Admin discount offers
 require the additional `DiscountOffers` migration. [Cash checkout](docs/cash-checkout.md)
 adds completed sales, cash/change, stock deduction and saved printable receipts; apply
-`CashCheckout` to enable it. Returns, non-cash payments and catalogue editing remain pending. The database
+`CashCheckout` to enable it. [Returns and refunds](docs/returns-and-refunds.md) support complete receipt items,
+tracked cash refunds and separate held stock; apply `ReturnsAndRefunds`. Non-cash
+payments and catalogue editing remain pending. The database
 connectivity check remains available. The user has applied `InitialCatalogue` to the
 development database; setup instructions below cover a fresh checkout.
 This is a development starter, not a system ready for pharmacy use.

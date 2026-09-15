@@ -28,7 +28,7 @@ public static class StockDisposalEndpoints
                 if (movement == null) return Results.NotFound();
                 if (movement.Batch.ExpiryDate >= StockReceiving.ShopToday()) return Results.BadRequest(new { message = "Only expired stock can be disposed through this workflow." });
                 if (await db.StockDisposals.AnyAsync(x => x.ReceiptId == input.LotId, ct)) return Results.Conflict(new { message = "This stock was already disposed. Refresh the inventory." });
-                var remaining = movement.Quantity - (await db.SaleStockMovements.Where(m => m.ReceiptId == input.LotId).SumAsync(m => (long?)m.Quantity, ct) ?? 0);
+                var remaining = movement.Quantity + (await db.ReturnedItems.Where(i => i.ReceiptId == input.LotId && i.Status == "Restocked").SumAsync(i => (long?)i.Quantity, ct) ?? 0) - (await db.SaleStockMovements.Where(m => m.ReceiptId == input.LotId).SumAsync(m => (long?)m.Quantity, ct) ?? 0);
                 if (remaining <= 0) return Results.Conflict(new { message = "No stock remains in this lot to dispose." });
                 var at = DateTimeOffset.UtcNow;
                 var disposal = new StockDisposal { Id = input.RequestId, ReceiptId = input.LotId, Quantity = remaining,

@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Returns;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -10,6 +11,8 @@ namespace PharmacyPos.Api.Data;
 public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> options)
     : IdentityDbContext<IdentityUser>(options)
 {
+    public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
+    public DbSet<ReturnedItem> ReturnedItems => Set<ReturnedItem>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleStockMovement> SaleStockMovements => Set<SaleStockMovement>();
     public DbSet<OfferRule> OfferRules => Set<OfferRule>();
@@ -36,6 +39,7 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
         modelBuilder.MapCharges();
         modelBuilder.MapOffers();
         modelBuilder.MapSaleData();
+        modelBuilder.MapReturns();
         var manufacturer = modelBuilder.Entity<Manufacturer>();
         manufacturer.ToTable("manufacturers", t => t.HasCheckConstraint("ck_manufacturer_name", "length(btrim(name)) > 0"));
         manufacturer.HasKey(x => x.Id);
