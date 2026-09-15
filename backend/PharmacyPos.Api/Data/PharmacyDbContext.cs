@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Auth;
 using PharmacyPos.Api.Returns;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -11,6 +12,8 @@ namespace PharmacyPos.Api.Data;
 public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> options)
     : IdentityDbContext<IdentityUser>(options)
 {
+    public DbSet<StaffAccount> StaffAccounts => Set<StaffAccount>();
+    public DbSet<StaffAccountEvent> StaffAccountEvents => Set<StaffAccountEvent>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<ReturnedItem> ReturnedItems => Set<ReturnedItem>();
     public DbSet<Sale> Sales => Set<Sale>();
@@ -40,6 +43,7 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
         modelBuilder.MapOffers();
         modelBuilder.MapSaleData();
         modelBuilder.MapReturns();
+        modelBuilder.MapStaffAccounts();
         var manufacturer = modelBuilder.Entity<Manufacturer>();
         manufacturer.ToTable("manufacturers", t => t.HasCheckConstraint("ck_manufacturer_name", "length(btrim(name)) > 0"));
         manufacturer.HasKey(x => x.Id);

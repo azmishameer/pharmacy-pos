@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import './App.css'
+import { StaffManagement } from './StaffManagement'
 import { StaffSession } from './StaffSession'
 import { AddMedicine } from './AddMedicine'
 import { CatalogueSubmissions } from './CatalogueSubmissions'
@@ -88,6 +89,7 @@ function CatalogueResults({ search, page, onPage, onReceive }: {
 }
 
 function CataloguePage({ username, roles, signOut }: { username: string; roles: string[]; signOut: () => void }) {
+  const [staffOpen, setStaffOpen] = useState(false)
   const [offersOpen, setOffersOpen] = useState(false)
   const [chargesOpen, setChargesOpen] = useState(false)
   const [salesOpen, setSalesOpen] = useState(roles.includes('Operator'))
@@ -108,8 +110,8 @@ function CataloguePage({ username, roles, signOut }: { username: string; roles: 
   return <div className="app-shell">
     <header className="app-header"><a className="brand" href="/"><span className="brand-mark" aria-hidden="true">＋</span>Pharmacy POS</a><div className="staff-bar"><span>{username} · {roles.join(', ')}</span><button onClick={signOut}>Sign out</button></div></header>
     <main>
-      {offersOpen && roles.includes('Admin') ? <OfferSettings onBack={() => setOffersOpen(false)} /> : chargesOpen && roles.includes('Admin') ? <ChargeSettings onBack={() => setChargesOpen(false)} /> : salesOpen ? <SalesCounter roles={roles} username={username} onBack={() => setSalesOpen(false)} /> : stockOpen ? <StockWorkspace isAdmin={roles.includes('Admin')} initialMedicineId={receivingMedicine} onBack={() => { setStockOpen(false); setReceivingMedicine(undefined) }} /> : <>
-      <div className="page-heading"><div><p className="eyebrow">MEDICINES</p><h1>Medicine catalogue</h1><p className="subtitle">Find medicine details in one place.</p></div>{!adding && <div className="heading-actions"><button className="primary" onClick={() => setSalesOpen(true)}>Sales counter</button>{roles.includes('Admin') && <><button onClick={() => setChargesOpen(true)}>Cart charges</button><button onClick={() => setOffersOpen(true)}>Discount offers</button></>}<button onClick={() => { setReceivingMedicine(undefined); setStockOpen(true) }}>Stock & receiving</button><button className="primary" onClick={() => { setAdding(true); setSavedMessage('') }}>Add medicine</button></div>}</div>
+      {staffOpen && roles.includes('Admin') ? <StaffManagement onBack={() => setStaffOpen(false)} /> : offersOpen && roles.includes('Admin') ? <OfferSettings onBack={() => setOffersOpen(false)} /> : chargesOpen && roles.includes('Admin') ? <ChargeSettings onBack={() => setChargesOpen(false)} /> : salesOpen ? <SalesCounter roles={roles} username={username} onBack={() => setSalesOpen(false)} /> : stockOpen ? <StockWorkspace isAdmin={roles.includes('Admin')} initialMedicineId={receivingMedicine} onBack={() => { setStockOpen(false); setReceivingMedicine(undefined) }} /> : <>
+      <div className="page-heading"><div><p className="eyebrow">MEDICINES</p><h1>Medicine catalogue</h1><p className="subtitle">Find medicine details in one place.</p></div>{!adding && <div className="heading-actions"><button className="primary" onClick={() => setSalesOpen(true)}>Sales counter</button>{roles.includes('Admin') && <><button onClick={() => setStaffOpen(true)}>Staff accounts</button><button onClick={() => setChargesOpen(true)}>Cart charges</button><button onClick={() => setOffersOpen(true)}>Discount offers</button></>}<button onClick={() => { setReceivingMedicine(undefined); setStockOpen(true) }}>Stock & receiving</button><button className="primary" onClick={() => { setAdding(true); setSavedMessage('') }}>Add medicine</button></div>}</div>
       {savedMessage && <p className="save-confirmation" role="status">{savedMessage}</p>}
       {adding ? <AddMedicine isAdmin={roles.includes('Admin')} onCancel={() => { setAdding(false); setRefresh(v => v + 1) }} onSaved={(brand, status) => {
         setAdding(false); setSavedMessage(`${brand} ${status === 'Approved' ? 'was saved to the catalogue' : 'was submitted for admin approval'}.`)

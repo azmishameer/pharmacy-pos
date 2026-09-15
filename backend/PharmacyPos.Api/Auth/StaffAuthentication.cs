@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using System.Threading.RateLimiting;
@@ -17,6 +20,7 @@ public static class StaffAuthentication
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         }).AddEntityFrameworkStores<PharmacyDbContext>().AddDefaultTokenProviders();
+        builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
         builder.Services.ConfigureApplicationCookie(options =>
         {
             options.Cookie.Name = "PharmacyPos.Session";
@@ -26,6 +30,16 @@ public static class StaffAuthentication
                 ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
             options.SlidingExpiration = true;
+            options.Events.OnValidatePrincipal = async context => {
+                await SecurityStampValidator.ValidatePrincipalAsync(context);
+                var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (id == null) return;
+                var db = context.HttpContext.RequestServices.GetRequiredService<PharmacyDbContext>();
+                if (await db.StaffAccounts.AnyAsync(a => a.UserId == id && a.Disabled)) {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+                }
+            };
             options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
             options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
         });
@@ -71,13 +85,16 @@ public static class StaffAuthentication
         }).AllowAnonymous();
 
         group.MapPost("/login", async (LoginRequest request, HttpContext context,
-            IAntiforgery antiforgery, SignInManager<IdentityUser> signIn) =>
+            IAntiforgery antiforgery, SignInManager<IdentityUser> signIn, UserManager<IdentityUser> users, PharmacyDbContext db) =>
         {
             context.Response.Headers.CacheControl = "no-store";
             if (!await HasValidToken(context, antiforgery)) return Results.BadRequest();
             if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length > 256
                 || string.IsNullOrEmpty(request.Password) || request.Password.Length > 1024)
                 return Results.BadRequest(new { message = "Enter a valid username and password." });
+            var user = await users.FindByNameAsync(request.Username.Trim());
+            if (user != null && await db.StaffAccounts.AnyAsync(a => a.UserId == user.Id && a.Disabled))
+                return Results.Json(new { message = "Unable to sign in. Check your details or try again later." }, statusCode: 401);
             var result = await signIn.PasswordSignInAsync(request.Username.Trim(), request.Password,
                 isPersistent: false, lockoutOnFailure: true);
             // The same response covers missing users, bad passwords, and locked accounts.
