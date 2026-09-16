@@ -150,6 +150,7 @@ await PurchaseCostChecks.Run(adminClient, operatorClient, anonymousSalesClient, 
 await ReportChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await ChargeProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await ProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await BackupChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await StaffChecks.Run(adminClient, operatorClient, anonymousSalesClient, () => entryFactory.CreateClient());
 
 static async Task<HttpResponseMessage> PostReview(HttpClient client, string url, bool approve, string? note = null) {
@@ -194,6 +195,7 @@ sealed class AuthFactory(string connection) : WebApplicationFactory<PharmacyApiM
             {
                 ["ConnectionStrings:Pharmacy"] = connection,
                 ["Database:Password"] = "disposable-test-only",
+                ["Backup:AutomaticEnabled"] = "false",
                 ["Logging:LogLevel:Default"] = "Warning"
             }));
     }

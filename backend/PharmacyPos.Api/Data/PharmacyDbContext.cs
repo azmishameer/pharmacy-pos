@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Maintenance;
 using PharmacyPos.Api.Auth;
 using PharmacyPos.Api.Returns;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,9 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     : IdentityDbContext<IdentityUser>(options)
 {
     public DbSet<PurchaseCostEntry> PurchaseCostEntries => Set<PurchaseCostEntry>();
+    public DbSet<BackupSetting> BackupSettings => Set<BackupSetting>();
+    public DbSet<BackupSettingEvent> BackupSettingEvents => Set<BackupSettingEvent>();
+    public DbSet<BackupRun> BackupRuns => Set<BackupRun>();
     public DbSet<StaffAccount> StaffAccounts => Set<StaffAccount>();
     public DbSet<StaffAccountEvent> StaffAccountEvents => Set<StaffAccountEvent>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
@@ -41,6 +45,7 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.MapStock();
+        modelBuilder.MapBackupData();
         modelBuilder.MapPurchaseCostsData();
         modelBuilder.MapCharges();
         modelBuilder.MapOffers();

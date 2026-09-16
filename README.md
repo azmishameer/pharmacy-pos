@@ -34,6 +34,11 @@ connectivity check remains available. The user has applied `InitialCatalogue` to
 development database; setup instructions below cover a fresh checkout.
 This is a development starter, not a system ready for pharmacy use.
 
+[Manual database backup and restore verification](docs/backup-and-restore.md) now
+creates private archives with checksums and snapshot table counts. Backups are not
+committed to Git. Apply `AutomaticDailyBackups` to enable daily 2 AM Bangladesh-time
+backups with admin pause/resume and run history. Keep the backend running.
+
 ## Project folders
 
 - `frontend`: React and TypeScript browser interface, built with Vite.
