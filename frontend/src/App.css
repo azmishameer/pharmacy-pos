@@ -126,3 +126,7 @@ th, td { padding: 18px 24px; border-top: 1px solid #e5ece8; vertical-align: top;
   body:has(.receipt-paper) .app-shell { max-width: none; padding: 0; }
   .receipt-paper { max-width: 100%; margin: 0; padding: 0; font-size: 11pt; }
 }
+
+.report-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.report-totals dt { font-size: .9rem; }
+.report-totals dd { margin: .3rem 0 0; font-weight: 600; overflow-wrap: anywhere; }

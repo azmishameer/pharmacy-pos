@@ -27,3 +27,18 @@ of the application preview.
 Integration checks cover creation, password rules, case-insensitive duplicate names,
 permissions, CSRF, retries, stale changes, session invalidation, disabled sign-in,
 re-enabling and audit attribution. They use a separate disposable database.
+
+## Local admin recovery
+
+A server operator with local database access can run:
+
+```sh
+dotnet run --project backend/PharmacyPos.Api --launch-profile http -- --reset-admin-password
+```
+
+The interactive command lists existing admin usernames, asks which account to
+recover, and reads the new password twice without echoing it. Never supply passwords
+as command arguments. It resets only an existing admin, clears temporary lockout,
+and invalidates old sessions. It does not enable disabled accounts or promote users.
+An audit event explicitly identifies local terminal recovery rather than an
+authenticated web action. No web recovery endpoint is exposed.

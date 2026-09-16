@@ -12,6 +12,7 @@ namespace PharmacyPos.Api.Data;
 public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> options)
     : IdentityDbContext<IdentityUser>(options)
 {
+    public DbSet<PurchaseCostEntry> PurchaseCostEntries => Set<PurchaseCostEntry>();
     public DbSet<StaffAccount> StaffAccounts => Set<StaffAccount>();
     public DbSet<StaffAccountEvent> StaffAccountEvents => Set<StaffAccountEvent>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
@@ -39,6 +40,7 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.MapStock();
+        modelBuilder.MapPurchaseCostsData();
         modelBuilder.MapCharges();
         modelBuilder.MapOffers();
         modelBuilder.MapSaleData();

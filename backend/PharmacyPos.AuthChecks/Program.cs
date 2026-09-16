@@ -146,6 +146,8 @@ await ChargeChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryF
 await OfferChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 await CheckoutChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 await ReturnChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await PurchaseCostChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await ReportChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await StaffChecks.Run(adminClient, operatorClient, anonymousSalesClient, () => entryFactory.CreateClient());
 
 static async Task<HttpResponseMessage> PostReview(HttpClient client, string url, bool approve, string? note = null) {

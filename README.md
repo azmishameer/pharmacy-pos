@@ -21,7 +21,10 @@ adds completed sales, cash/change, stock deduction and saved printable receipts;
 tracked cash refunds and separate held stock; apply `ReturnsAndRefunds`. Non-cash
 payments and catalogue editing remain pending. [Staff account management](docs/staff-accounts.md)
 adds admin controls for operator creation, password resets and access status; apply
-`StaffAccountManagement` and restart the backend. The database
+`StaffAccountManagement` and restart the backend. The [admin sales report](docs/sales-reports.md)
+provides date-filtered sales, refunds, cash and staff totals with CSV export; restart
+the backend to enable it (no additional migration). [Admin purchase costs](docs/purchase-costs.md)
+record delivery totals and retain correction history; apply `PurchaseCostHistory`. The database
 connectivity check remains available. The user has applied `InitialCatalogue` to the
 development database; setup instructions below cover a fresh checkout.
 This is a development starter, not a system ready for pharmacy use.

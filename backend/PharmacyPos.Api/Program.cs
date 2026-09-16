@@ -9,7 +9,8 @@ using Npgsql;
 using PharmacyPos.Api.Auth;
 
 var createAdmin = args.Contains("--create-admin");
-var builder = WebApplication.CreateBuilder(args.Where(x => x != "--create-admin").ToArray());
+var resetAdmin = args.Contains("--reset-admin-password");
+var builder = WebApplication.CreateBuilder(args.Where(x => x != "--create-admin" && x != "--reset-admin-password").ToArray());
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -29,9 +30,13 @@ builder.Services.AddHealthChecks()
 builder.AddStaffAuthentication();
 
 var app = builder.Build();
-if (createAdmin)
+if (createAdmin || resetAdmin)
 {
-    try { await FirstAdminSetup.RunAsync(app.Services); }
+    try {
+        if (createAdmin && resetAdmin) throw new InvalidOperationException("Choose only one account command.");
+        if (resetAdmin) await FirstAdminSetup.ResetAsync(app.Services);
+        else await FirstAdminSetup.RunAsync(app.Services);
+    }
     catch (Exception error) when (error is InvalidOperationException or NpgsqlException)
     {
         Console.Error.WriteLine(error is NpgsqlException
@@ -56,6 +61,8 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.MapStaffAuthentication();
 app.MapStaffManagement();
+app.MapSalesReports();
+app.MapPurchaseCosts();
 app.MapCataloguePreview();
 app.MapStockReceiving();
 app.MapSalesCounter();

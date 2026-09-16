@@ -46,7 +46,7 @@ export function StockWorkspace({ isAdmin, initialMedicineId, onBack }: { isAdmin
       {error && <p role="alert" className="auth-error">{error}</p>}
       {tab === 'disposals' && <p>Records stay in this list for three calendar months after disposal. Export them here during that time.</p>}
       <StockList key={`${tab}-${filter}-${page}-${refresh}`} tab={tab} filter={filter} page={page} isAdmin={isAdmin} onPage={setPage} reload={reload} onCorrect={row => setForm({ medicineId: row.medicineId, original: row })} />
-      <p className="page-note">Purchase costs and checkout are not part of this step. Stock marked unsellable cannot be sold.</p>
+      <p className="page-note">Stock marked unsellable cannot be sold.</p>
     </>}
   </>
 }
