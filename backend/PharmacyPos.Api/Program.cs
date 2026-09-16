@@ -62,6 +62,7 @@ app.UseRateLimiter();
 app.MapStaffAuthentication();
 app.MapStaffManagement();
 app.MapSalesReports();
+app.MapProfitReports();
 app.MapPurchaseCosts();
 app.MapCataloguePreview();
 app.MapStockReceiving();

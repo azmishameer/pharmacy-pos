@@ -1,14 +1,16 @@
+import { ChargeProfit } from './ChargeProfit'
 import { useEffect, useRef, useState } from 'react'
 import { stockGet, stockPost } from './stockApi'
 
 type Medicine = { id: string; brandName: string; manufacturer: string; dosageForm: string }
-type Rule = { id: string; name: string; kind: string; value: number; allMedicines: boolean; stoppedAt: string | null; medicines: { id: string; name: string }[] }
+type Rule = { excludeFromProfit: boolean | null; classificationVersion: string | null; id: string; name: string; kind: string; value: number; allMedicines: boolean; stoppedAt: string | null; medicines: { id: string; name: string }[] }
 const kinds: Record<string, string> = { Percentage: 'Percentage (%)', PerUnit: 'Fixed amount per piece (৳)', PerMedicine: 'Fixed amount once per medicine (৳)' }
 export function ChargeSettings({ onBack }: { onBack: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]), [refresh, setRefresh] = useState(0), [loading, setLoading] = useState(true)
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false)
   const [name, setName] = useState(''), [kind, setKind] = useState('Percentage'), [value, setValue] = useState(''), [scope, setScope] = useState('all')
   const [selected, setSelected] = useState<Medicine[]>([]), [search, setSearch] = useState('')
+  const [excludeFromProfit, setExcludeFromProfit] = useState(false)
   const [stopping, setStopping] = useState<string | null>(null)
   const retry = useRef<{ key: string; id: string } | null>(null)
   useEffect(() => {
@@ -23,11 +25,11 @@ export function ChargeSettings({ onBack }: { onBack: () => void }) {
     <form className="catalogue-panel charge-form" onSubmit={async e => {
       e.preventDefault(); setError(''); setMessage('')
       if (scope === 'selected' && selected.length === 0) { setError('Select at least one medicine.'); return }
-      const payload = { name, kind, value: Number(value), allMedicines: scope === 'all', medicineIds: scope === 'all' ? [] : selected.map(m => m.id) }
+      const payload = { name, kind, excludeFromProfit, value: Number(value), allMedicines: scope === 'all', medicineIds: scope === 'all' ? [] : selected.map(m => m.id) }
       const key = JSON.stringify(payload)
       if (retry.current?.key !== key) retry.current = { key, id: crypto.randomUUID() }
       setBusy(true)
-      try { await stockPost('/api/charges', { ...payload, requestId: retry.current.id }); retry.current = null; setName(''); setValue(''); setSelected([]); setMessage('Charge saved. New cart calculations will include it.'); setRefresh(v => v + 1) }
+      try { await stockPost('/api/charges', { ...payload, requestId: retry.current.id }); retry.current = null; setName(''); setValue(''); setExcludeFromProfit(false); setSelected([]); setMessage('Charge saved. New cart calculations will include it.'); setRefresh(v => v + 1) }
       catch (e) { setError((e as Error).message) } finally { setBusy(false) }
     }}>
       <h2>Add a charge</h2>
@@ -42,6 +44,8 @@ export function ChargeSettings({ onBack }: { onBack: () => void }) {
           <p>{selected.length} selected</p>{selected.map(m => <p key={m.id}>{m.brandName} · {m.manufacturer} <button type="button" onClick={() => setSelected(rows => rows.filter(x => x.id !== m.id))}>Remove {m.brandName}</button></p>)}
           <MedicinePicker key={search} search={search} selected={selected} onAdd={m => setSelected(rows => [...rows, m])} />
         </div>}
+        <label><input type="checkbox" checked={excludeFromProfit} onChange={e => setExcludeFromProfit(e.target.checked)} /> Exclude this charge from profit</label>
+        <p className="field-help">Check for VAT, tax or other money collected for another party. Unchecked charges count as pharmacy income. Both still appear in the cart and receipt.</p>
         <button type="submit" className="primary">{busy ? 'Saving…' : 'Save and activate charge'}</button>
       </fieldset>
     </form>
@@ -49,6 +53,7 @@ export function ChargeSettings({ onBack }: { onBack: () => void }) {
       <p className="field-help">To change a charge, stop it and add its replacement. Stopped rules remain here for reference.</p>
       {loading ? <p role="status">Loading charges…</p> : rules.length === 0 ? <p>No charges configured.</p> : rules.map(rule => <article className="counter-product" key={rule.id}>
         <h3>{rule.name} · {rule.stoppedAt ? 'Stopped' : 'Active'}</h3><p>{kinds[rule.kind]}: {rule.value} · {rule.allMedicines ? 'All medicines' : rule.medicines.map(m => m.name).join(', ')}</p>
+        <ChargeProfit key={`${rule.id}-${rule.classificationVersion}`} id={rule.id} value={rule.excludeFromProfit} version={rule.classificationVersion} onSaved={() => { setMessage('Profit treatment saved.'); setRefresh(v => v + 1) }} />
         {!rule.stoppedAt && (stopping === rule.id ? <div><p>Stop {rule.name} for new cart calculations?</p><button disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await stockPost(`/api/charges/${rule.id}/stop`, {}); setStopping(null); setMessage(`${rule.name} stopped.`); setRefresh(v => v + 1) } catch (e) { setError((e as Error).message) } finally { setBusy(false) } }}>Confirm stop</button> <button disabled={busy} onClick={() => setStopping(null)}>Cancel</button></div> : <button disabled={busy} onClick={() => setStopping(rule.id)}>Stop {rule.name}</button>)}
       </article>)}
     </section>

@@ -11,6 +11,9 @@ namespace PharmacyPos.Api.Sales;
 public sealed class ChargeRule
 {
     public Guid Id { get; set; }
+    public bool? ExcludeFromProfit { get; set; }
+    public bool? InitialExcludeFromProfit { get; set; }
+    public Guid? ClassificationVersion { get; set; }
     public string Name { get; set; } = "";
     public string NameKey { get; set; } = "";
     public string Kind { get; set; } = "Percentage";
@@ -31,9 +34,10 @@ public sealed class ChargeMedicine
 }
 public static class ChargeRules
 {
-    public sealed record Input(Guid RequestId, string? Name, string Kind, decimal Value, bool AllMedicines, List<Guid>? MedicineIds);
+    public sealed record Input(Guid RequestId, string? Name, string Kind, decimal Value, bool AllMedicines, List<Guid>? MedicineIds, bool ExcludeFromProfit = false);
     public static void MapCharges(this ModelBuilder model)
     {
+        model.MapChargeClassification();
         var rule = model.Entity<ChargeRule>();
         rule.ToTable("charge_rules", t => {
             t.HasCheckConstraint("ck_charge_value", "\"Value\" > 0 AND \"Value\" <= 1000000 AND (\"Kind\" <> 'Percentage' OR \"Value\" <= 100)");
@@ -56,10 +60,11 @@ public static class ChargeRules
     public static void MapChargeRules(this WebApplication app)
     {
         if (!app.Environment.IsDevelopment()) return;
+        app.MapChargeClassification();
         app.MapGet("/api/charges", async (PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             return Results.Ok(await db.ChargeRules.AsNoTracking().OrderBy(x => x.StoppedAt != null).ThenByDescending(x => x.CreatedAt)
-                .Select(x => new { x.Id, x.Name, x.Kind, x.Value, x.AllMedicines, x.CreatedAt, x.StoppedAt,
+                .Select(x => new { x.Id, x.Name, x.Kind, x.Value, x.AllMedicines, x.CreatedAt, x.StoppedAt, x.ExcludeFromProfit, x.ClassificationVersion,
                     medicines = x.Medicines.Select(m => new { id = m.MedicineId, name = m.Medicine.BrandName }).ToList() }).ToListAsync(ct));
         }).RequireAuthorization("AdminOnly");
         app.MapPost("/api/charges", async (Input input, PharmacyDbContext db, HttpContext http, IAntiforgery csrf, CancellationToken ct) => {
@@ -77,7 +82,7 @@ public static class ChargeRules
                 var existing = await db.ChargeRules.Include(x => x.Medicines).SingleOrDefaultAsync(x => x.Id == input.RequestId, ct);
                 if (existing != null) {
                     if (existing.CreatedBy != actor || existing.Name != name || existing.Kind != input.Kind || existing.Value != input.Value
-                        || existing.AllMedicines != input.AllMedicines || !existing.Medicines.Select(x => x.MedicineId).Order().SequenceEqual(ids))
+                        || existing.AllMedicines != input.AllMedicines || existing.InitialExcludeFromProfit != input.ExcludeFromProfit || !existing.Medicines.Select(x => x.MedicineId).Order().SequenceEqual(ids))
                         return Results.Conflict(new { message = "This request was already used for a different charge. Refresh before creating another." });
                     return Results.Ok(new { existing.Id });
                 }
@@ -87,6 +92,7 @@ public static class ChargeRules
                 if (await db.Medicines.CountAsync(x => ids.Contains(x.Id) && x.IsActive && x.ReviewStatus == CatalogueReviewStatus.Approved, ct) != ids.Length)
                     return Results.BadRequest(new { message = "Select approved, active medicines." });
                 db.ChargeRules.Add(new ChargeRule { Id = input.RequestId, Name = name, NameKey = key, Kind = input.Kind, Value = input.Value,
+                    ExcludeFromProfit = input.ExcludeFromProfit, InitialExcludeFromProfit = input.ExcludeFromProfit,
                     AllMedicines = input.AllMedicines, CreatedBy = actor, CreatedAt = DateTimeOffset.UtcNow,
                     Medicines = ids.Select(id => new ChargeMedicine { MedicineId = id }).ToList() });
                 await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);

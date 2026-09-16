@@ -20,6 +20,7 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleStockMovement> SaleStockMovements => Set<SaleStockMovement>();
     public DbSet<OfferRule> OfferRules => Set<OfferRule>();
+    public DbSet<ChargeClassificationEvent> ChargeClassificationEvents => Set<ChargeClassificationEvent>();
     public DbSet<ChargeRule> ChargeRules => Set<ChargeRule>();
     public DbSet<Manufacturer> Manufacturers => Set<Manufacturer>();
     public DbSet<GenericIngredient> GenericIngredients => Set<GenericIngredient>();

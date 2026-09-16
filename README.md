@@ -24,7 +24,12 @@ adds admin controls for operator creation, password resets and access status; ap
 `StaffAccountManagement` and restart the backend. The [admin sales report](docs/sales-reports.md)
 provides date-filtered sales, refunds, cash and staff totals with CSV export; restart
 the backend to enable it (no additional migration). [Admin purchase costs](docs/purchase-costs.md)
-record delivery totals and retain correction history; apply `PurchaseCostHistory`. The database
+record delivery totals and retain correction history; apply `PurchaseCostHistory`.
+[Charge profit classification](docs/charge-profit-classification.md) adds the admin
+exclusion checkbox and review of old charges; apply `ChargeProfitClassification`.
+[Admin profit reporting](docs/profit-reports.md) now uses corrected costs, excludes
+classified pass-through charges and handles refunds and approved returns. Restart the
+backend to enable it; no additional migration is required. The database
 connectivity check remains available. The user has applied `InitialCatalogue` to the
 development database; setup instructions below cover a fresh checkout.
 This is a development starter, not a system ready for pharmacy use.
