@@ -1,3 +1,4 @@
+import { StockAlerts } from './StockAlerts'
 import { useEffect, useState } from 'react'
 import { ReturnsWorkspace } from './ReturnsWorkspace'
 import { CashForm, PendingCheckout, RecentSales } from './CashCheckout'
@@ -10,6 +11,7 @@ type Quote = { quoteHash: string; lines: { lotId: string; unit: string; quantity
 const money = (amount: number) => `৳${amount.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
 const unitName = (unit: string, stock: Stock) => unit === 'Piece' ? stock.baseUnit.toLowerCase() : unit.toLowerCase()
 export function SalesCounter({ onBack, username, roles }: { onBack: () => void; username: string; roles: string[] }) {
+  const [alertsOpen, setAlertsOpen] = useState(false)
   const [returnsOpen, setReturnsOpen] = useState(false)
   const pendingKey = `pharmacy-cash-checkout:${username}`
   const [pending, setPending] = useState<CheckoutRequest | null>(() => {
@@ -36,10 +38,11 @@ export function SalesCounter({ onBack, username, roles }: { onBack: () => void; 
     sessionStorage.removeItem(pendingKey); setPending(null); if (clearCart) setCart([]); setRefresh(v => v + 1)
   }
   if (pending) return <PendingCheckout request={pending} onNewSale={() => clearPending(true)} onRejected={() => clearPending(false)} />
+  if (alertsOpen) return <StockAlerts isAdmin={roles.includes('Admin')} onBack={() => setAlertsOpen(false)} backLabel="Back to sales counter" />
   if (returnsOpen) return <ReturnsWorkspace isAdmin={roles.includes('Admin')} username={username} onBack={() => setReturnsOpen(false)} />
   if (history) return <RecentSales onBack={() => setHistory(false)} />
   return <>
-    <div className="page-heading"><div><p className="eyebrow">SALES COUNTER</p><h1>New sale</h1><p className="subtitle">Find a medicine and build the customer’s cart.</p></div><div className="heading-actions"><button onClick={() => setHistory(true)}>Recent sales</button>{roles.some(r => r === 'Admin' || r === 'Operator') && <button onClick={() => setReturnsOpen(true)}>Returns & refunds</button>}<button onClick={onBack}>Medicine catalogue</button></div></div>
+    <div className="page-heading"><div><p className="eyebrow">SALES COUNTER</p><h1>New sale</h1><p className="subtitle">Find a medicine and build the customer’s cart.</p></div><div className="heading-actions"><button onClick={() => setAlertsOpen(true)}>Stock alerts</button><button onClick={() => setHistory(true)}>Recent sales</button>{roles.some(r => r === 'Admin' || r === 'Operator') && <button onClick={() => setReturnsOpen(true)}>Returns & refunds</button>}<button onClick={onBack}>Medicine catalogue</button></div></div>
     <p className="counter-preview">Adding items does not reserve stock. Complete cash checkout to save the sale and deduct stock.</p>
     {checkoutError && <p role="alert" className="auth-error">{checkoutError}</p>}
     <div className="counter-layout">

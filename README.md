@@ -39,6 +39,9 @@ creates private archives with checksums and snapshot table counts. Backups are n
 committed to Git. Apply `AutomaticDailyBackups` to enable daily 2 AM Bangladesh-time
 backups with admin pause/resume and run history. Keep the backend running.
 
+[Stock alerts](docs/stock-alerts.md) show low stock and 90-day near-expiry batches to
+admins and operators. Admins set per-medicine thresholds; apply `StockAlertThresholds`.
+
 ## Project folders
 
 - `frontend`: React and TypeScript browser interface, built with Vite.

@@ -73,6 +73,7 @@ app.MapProfitReports();
 app.MapPurchaseCosts();
 app.MapCataloguePreview();
 app.MapStockReceiving();
+app.MapStockAlerts();
 app.MapSalesCounter();
 app.MapChargeRules();
 app.MapOfferRules();
