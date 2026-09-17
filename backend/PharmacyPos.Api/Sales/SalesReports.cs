@@ -63,7 +63,7 @@ public static class SalesReports
         Row("","TOTAL",r.Totals);foreach(var s in r.Staff)Row(s.StaffId,s.Username,s.Totals);return b.ToString();
     }
     public static void MapSalesReports(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/reports/sales",async(string? from,string? to,string? format,PharmacyDbContext db,HttpContext http,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";
             var first=StockReceiving.ShopToday();var last=first;

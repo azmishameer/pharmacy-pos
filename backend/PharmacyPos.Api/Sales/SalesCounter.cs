@@ -22,7 +22,7 @@ public static class SalesCounter
 
     public static void MapSalesCounter(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapGet("/api/sales/stock", async (string? search, int? page, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var term = search?.Trim() ?? ""; var n = page ?? 1;

@@ -92,7 +92,7 @@ public static class ProfitReports
         return b.ToString();
     }
     public static void MapProfitReports(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/reports/profit",async(string? from,string? to,string? format,PharmacyDbContext db,HttpContext http,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";var first=StockReceiving.ShopToday();var last=first;
             if((from!=null&&!DateOnly.TryParseExact(from,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out first))||

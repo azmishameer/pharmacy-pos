@@ -59,7 +59,7 @@ error. Apply the migration and restart the backend before entering credentials.
 | `GET /api/auth/session` | Returns current username/roles or null and a CSRF request token; never cached |
 | `POST /api/auth/login` | JSON username/password plus `X-CSRF-TOKEN`; nonpersistent session cookie on success |
 | `POST /api/auth/logout` | Requires a signed-in session and valid CSRF token; clears session cookie |
-| `GET /api/medicines` | Requires a signed-in Admin, Manager, or Operator; remains Development-only |
+| `GET /api/medicines` | Requires a signed-in Admin, Manager, or Operator; available in Development and Production |
 
 `Staff` is the shared catalogue policy. `AdminOnly` is defined and tested for future
 admin actions; those business endpoints must explicitly require it when added.
@@ -68,19 +68,15 @@ There are no cost, offer, approval, or staff-management endpoints yet.
 - Cookies are HTTP-only and SameSite Strict. Login and logout validate antiforgery
   tokens. Session cookies are not stored in browser local storage.
 - A session has a 30-minute sliding timeout. Identity security-stamp validation is
-  used; immediate account disabling/revocation will need explicit management design.
+  used on every request; disabled accounts are rejected immediately.
 - Five failed passwords lock an existing account for 15 minutes. Login attempts are
   additionally limited to ten per minute per remote IP. Missing users, wrong passwords,
   and locked users receive the same public failure message.
 - Outside Development, cookies require HTTPS. The local HTTP exception is for Mac
-  development only. Final Windows hosting must use HTTPS, correct proxy/IP handling,
-  and restricted network access before deployment.
+  development only. The Windows installation uses HTTPS and limits the firewall rule to the private local network.
 - Persist and protect ASP.NET Core Data Protection keys for production so cookie
-  encryption survives service restarts. Configure the Windows service identity and
-  protected key storage during deployment; do not treat development key storage as
-  a completed production setup.
-- Staff creation, role changes, disabling, password recovery, and their audit history
-  are future admin-management work. No public self-service reset is implemented.
+  encryption survives service restarts. The Windows installer configures a service identity, restricted key directory and machine DPAPI protection.
+- Admin staff creation, disabling and password recovery have an audit history. No public self-service reset is implemented.
 
 ## Verification
 

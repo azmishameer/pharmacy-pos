@@ -24,7 +24,7 @@ public static class StockAlerts
         e.HasOne<IdentityUser>().WithMany().HasForeignKey(x=>x.ActorId).OnDelete(DeleteBehavior.Restrict);
     }
     public static void MapStockAlerts(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/stock-alerts/low",async(string? search,int? page,bool? all,PharmacyDbContext db,HttpContext http,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";var n=page??1;var term=search?.Trim()??"";var today=StockReceiving.ShopToday();
             if(n is <1 or >10000||term.Length>100)return Results.BadRequest();

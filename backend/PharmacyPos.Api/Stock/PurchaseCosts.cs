@@ -32,7 +32,7 @@ public static class PurchaseCosts
     }
     static object View(PurchaseCostEntry e)=>new{e.Id,e.Revision,e.TotalCost,e.ReceivedUnits,unitCost=decimal.Round(e.TotalCost/e.ReceivedUnits,6),e.Reason,e.ActorName,e.At};
     public static void MapPurchaseCosts(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/purchase-costs",async(int? page,string? search,PharmacyDbContext db,HttpContext http,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";var n=page??1;var term=search?.Trim()??"";
             if(n is <1 or >10000||term.Length>100)return Results.BadRequest();

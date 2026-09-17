@@ -59,7 +59,7 @@ public static class ChargeRules
     }
     public static void MapChargeRules(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapChargeClassification();
         app.MapGet("/api/charges", async (PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";

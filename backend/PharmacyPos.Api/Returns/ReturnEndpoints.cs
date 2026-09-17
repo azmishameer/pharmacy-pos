@@ -18,7 +18,7 @@ public static class ReturnEndpoints
     private static object Item(ReturnedItem i) => new { i.Id, i.LineIndex, i.BrandName, i.BatchNumber, i.BaseUnit, i.Packs, i.Unit, i.Quantity, i.Refund, i.Status, i.ReviewerName, i.ReviewedAt, i.ReviewReason };
     private static object Result(SaleReturn r) => new { r.Id, r.SaleId, receiptNumber = $"POS-{r.Sale.Number:D8}", r.Amount, r.Method, r.ReceiptPresented, r.Reason, r.ActorName, r.At, items = r.Items.OrderBy(i => i.LineIndex).Select(Item) };
     public static void MapReturnEndpoints(this WebApplication app) {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapGet("/api/returns/sale", async (string? number, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var text = (number ?? "").Trim(); if (text.StartsWith("POS-",StringComparison.OrdinalIgnoreCase)) text = text[4..];

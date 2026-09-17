@@ -63,7 +63,7 @@ public static class AutomaticBackups
     }
     public sealed record Input(Guid RequestId,Guid ExpectedVersion,bool Paused,string? Reason);
     public static void MapAutomaticBackups(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/backups",async(PharmacyDbContext db,HttpContext http,IConfiguration config,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";
             var s=await db.BackupSettings.AsNoTracking().SingleOrDefaultAsync(ct);

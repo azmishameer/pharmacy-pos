@@ -28,3 +28,9 @@
 *.user
 *.suo
 *.log
+
+# Deployment packages and local published assets
+/artifacts/
+backend/PharmacyPos.Api/wwwroot/
+
+**/__pycache__/

@@ -9,7 +9,7 @@ public static class CatalogueEndpoints
     public static void MapCataloguePreview(this WebApplication app)
     {
         // Catalogue remains a development preview, with server-enforced staff access.
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapCatalogueEntry();
         app.MapCatalogueReview();
         app.MapGet("/api/catalogue/options", () => Results.Ok(new { manufacturers = CatalogueOptions.Manufacturers, forms = CatalogueOptions.Forms, units = Enum.GetNames<StockUnit>() })).RequireAuthorization("Staff");

@@ -16,7 +16,7 @@ var connection = Environment.GetEnvironmentVariable("PHARMACY_TEST_CONNECTION")
 if (!connection.Contains("pharmacy_auth_test", StringComparison.Ordinal))
     throw new InvalidOperationException("Test connection must name a pharmacy_auth_test database.");
 using var factory = new AuthFactory(connection);
-using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
 using (var scope = factory.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
@@ -68,8 +68,8 @@ Console.WriteLine("PASS: authentication, CSRF, role permissions, sign-out, locko
 
 // Separate host resets the login limiter while reusing only this disposable database.
 using var entryFactory = new AuthFactory(connection);
-using var adminClient = entryFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-using var operatorClient = entryFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+using var adminClient = entryFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
+using var operatorClient = entryFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
 Assert((await Login(adminClient, "admin-test", "Temporary-Test!123")).StatusCode == HttpStatusCode.NoContent, "admin entry login");
 Assert((await Login(operatorClient, "operator-test", "Temporary-Test!123")).StatusCode == HttpStatusCode.NoContent, "operator entry login");
 var medicine = new
@@ -140,7 +140,7 @@ using (var scope = entryFactory.Services.CreateScope()) {
 Console.WriteLine("PASS: operator submission, hidden pending catalogue, batch dates, review authorization, rejection, reentry, and review attribution.");
 
 await StockChecks.Run(adminClient, operatorClient, entryFactory.Services, medicine.requestId);
-using var anonymousSalesClient = entryFactory.CreateClient();
+using var anonymousSalesClient = entryFactory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
 await SalesChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 await ChargeChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId, pendingMedicine.requestId);
 await OfferChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
@@ -152,7 +152,7 @@ await ChargeProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, 
 await ProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 await BackupChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await StockAlertChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
-await StaffChecks.Run(adminClient, operatorClient, anonymousSalesClient, () => entryFactory.CreateClient());
+await StaffChecks.Run(adminClient, operatorClient, anonymousSalesClient, () => entryFactory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false }));
 
 static async Task<HttpResponseMessage> PostReview(HttpClient client, string url, bool approve, string? note = null) {
     var session = await Session(client);
@@ -189,7 +189,7 @@ sealed class AuthFactory(string connection) : WebApplicationFactory<PharmacyApiM
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../PharmacyPos.Api")));
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(Environment.GetEnvironmentVariable("PHARMACY_TEST_ENVIRONMENT") ?? "Development");
         builder.ConfigureServices(services => services.AddDataProtection().UseEphemeralDataProtectionProvider());
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>

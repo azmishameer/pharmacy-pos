@@ -39,7 +39,7 @@ public static class StaffManagement
     }
     static IResult Errors(IdentityResult r)=>Results.BadRequest(new{message=string.Join(" ",r.Errors.Select(x=>x.Description))});
     public static void MapStaffManagement(this WebApplication app) {
-        if(!app.Environment.IsDevelopment())return;
+
         app.MapGet("/api/staff",async(int? page,string? search,PharmacyDbContext db,UserManager<IdentityUser> users,HttpContext http,CancellationToken ct)=>{
             http.Response.Headers.CacheControl="no-store";var n=page??1;var term=search?.Trim()??"";
             if(n is <1 or >10000||term.Length>100)return Results.BadRequest();

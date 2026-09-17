@@ -37,7 +37,7 @@ public static class ReceiptSettings
     }
     public static void MapReceiptSettings(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapGet("/api/receipt-settings", async (PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             return Results.Ok(View(await Current(db, ct)));

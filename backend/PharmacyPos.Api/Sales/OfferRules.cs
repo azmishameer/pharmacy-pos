@@ -59,7 +59,7 @@ public static class OfferRules
     }
     public static void MapOfferRules(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapGet("/api/offers", async (PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var today = StockReceiving.ShopToday();

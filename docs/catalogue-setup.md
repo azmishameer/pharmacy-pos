@@ -30,7 +30,7 @@ as a deliberate deployment step using separate credentials and a tested backup.
   must exist. Strength must be positive, and blank names are rejected.
 - Base stock unit currently supports tablets only. Other forms require additional
   validation and unit design before their entry workflow is released.
-- A read-only Development-only `GET /api/medicines` preview now requires a signed-in
+- A read-only authenticated `GET /api/medicines` preview now requires a signed-in
   staff account; see [staff setup](staff-sign-in.md). No catalogue write endpoints are
   exposed. Entry workflows, input normalization, at-least-one-ingredient validation, allowed strength
   units, duplicate detection, and audit events must accompany the later entry service.

@@ -4,7 +4,7 @@ A local-network pharmacy sales and inventory application, developed in small ste
 
 ## Current milestone
 
-The React catalogue page reads active medicine details from the development-only
+The React catalogue page reads active medicine details from the authenticated
 `/api/medicines` endpoint, with search and pagination. Empty tables show "No medicines yet".
 Local staff sign-in and server-enforced catalogue access are implemented; apply the
 new account migration and create your first admin using the instructions below.
@@ -87,8 +87,7 @@ If the page cannot connect, check http://localhost:5167/api/status directly.
 It should return `{"status":"ok"}`. A 404 response can mean an older backend
 process is still running; restart it from this project.
 
-These HTTP addresses are for development on this computer. Encrypted connections,
-automatic service startup, and local backup/restore will be configured before deployment.
+These HTTP addresses are for development on this computer. The Windows package provides HTTPS, automatic service startup and separate backup storage; see the deployment guide below.
 
 ## Development database connection
 
@@ -136,3 +135,7 @@ or private certificates. GitHub stores code; it is not the pharmacy database or
 its backup service.
 
 Receipt branding, 80 mm printing and the enforced 15-day return policy are documented in [receipt printing](docs/receipt-printing.md).
+
+## Client deployment
+
+Build the Windows x64 installer package with `python3 scripts/build-release.py`. See [Windows deployment](docs/windows-deployment.md) for installation, HTTPS, updates, backups and the future move to online hosting. Business endpoints now work in Production mode with the same role and CSRF checks.

@@ -26,7 +26,7 @@ public static class StockReceiving
 
     public static void MapStockReceiving(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapStockViews();
         app.MapMrpCorrection();
         app.MapPost("/api/stock/receipts", Receive).RequireAuthorization("Staff");

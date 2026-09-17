@@ -68,7 +68,7 @@ public static class CashCheckout
         payments = sale.Payments.Select(p => new { p.Method, p.Amount, p.Tendered, p.Change }) };
     public static void MapCashCheckout(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment()) return;
+
         app.MapPost("/api/sales/checkout", async (Input input, PharmacyDbContext db, HttpContext http, IAntiforgery csrf, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             try {
