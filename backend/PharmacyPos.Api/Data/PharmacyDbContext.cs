@@ -53,6 +53,12 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
         modelBuilder.MapCharges();
         modelBuilder.MapOffers();
         modelBuilder.MapSaleData();
+        var branding = modelBuilder.Entity<ReceiptBranding>();
+        branding.ToTable("receipt_branding"); branding.HasKey(b => b.Id);
+        branding.Property(b => b.Name).HasMaxLength(200); branding.Property(b => b.Address).HasMaxLength(600);
+        branding.Property(b => b.Logo).HasMaxLength(140000); branding.HasIndex(b => b.At);
+        branding.HasOne<IdentityUser>().WithMany().HasForeignKey(b => b.ActorId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Sale>().HasOne(s => s.Branding).WithMany().HasForeignKey(s => s.BrandingId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.MapReturns();
         modelBuilder.MapStaffAccounts();
         var manufacturer = modelBuilder.Entity<Manufacturer>();

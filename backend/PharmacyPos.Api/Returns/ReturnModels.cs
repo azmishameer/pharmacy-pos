@@ -12,6 +12,7 @@ public sealed class SaleReturn
     public Sale Sale { get; set; } = null!;
     public decimal Amount { get; set; }
     public string Method { get; set; } = "Cash";
+    public bool? ReceiptPresented { get; set; }
     public string Reason { get; set; } = "";
     public string ActorId { get; set; } = "";
     public string ActorName { get; set; } = "";

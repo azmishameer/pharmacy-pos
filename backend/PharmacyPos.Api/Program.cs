@@ -78,6 +78,7 @@ app.MapSalesCounter();
 app.MapChargeRules();
 app.MapOfferRules();
 app.MapCashCheckout();
+app.MapReceiptSettings();
 app.MapReturnEndpoints();
 
 // API availability is separate from the database connection check.

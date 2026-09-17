@@ -17,6 +17,13 @@ public static class CheckoutChecks
     }
     public static async Task Run(HttpClient admin, HttpClient op, HttpClient anonymous, IServiceProvider services, Guid medicineId)
     {
+        var brand = new ReceiptSettings.Input(Guid.NewGuid(),null,"Test Pharmacy","Dhaka, Bangladesh","data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAi0lEQVR4nO3XsQ2AMBAEQRdBORRB/81ADw5+LTQvbezTZF7vwF3PvdXErYlHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABnAOyO+0sA6gF1AOoBdQDqAXUA6gF1AOoBdQDqAXUAJr6cu+MmDsDEIwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAZAB84LwcUzPM9qwAAAABJRU5ErkJggg==");
+        Check((await anonymous.GetAsync("/api/receipt-settings")).StatusCode==HttpStatusCode.Unauthorized,"branding requires sign-in");
+        Check((await Post(op,"/api/receipt-settings",brand)).StatusCode==HttpStatusCode.Forbidden,"branding admin only");
+        Check((await admin.PostAsJsonAsync("/api/receipt-settings",brand)).StatusCode==HttpStatusCode.BadRequest,"branding CSRF");
+        Check((await Post(admin,"/api/receipt-settings",brand with {Logo="data:image/svg+xml,<svg/>"})).StatusCode==HttpStatusCode.BadRequest,"active image content rejected");
+        Check((await Post(admin,"/api/receipt-settings",brand)).IsSuccessStatusCode,"branding saved");
+        Check((await Post(admin,"/api/receipt-settings",brand)).IsSuccessStatusCode,"branding retry safe");
         // End previous scenarios' rules through their public admin workflow.
         var offers = await admin.GetFromJsonAsync<JsonElement>("/api/offers");
         foreach (var o in offers.EnumerateArray()) await Post(admin,$"/api/offers/{o.GetProperty("id").GetGuid()}/stop",new {});
@@ -64,6 +71,13 @@ public static class CheckoutChecks
         Check((await Post(op,"/api/sales/checkout",request)).IsSuccessStatusCode,"original retry still works after price change");
         var old = await op.GetFromJsonAsync<JsonElement>($"/api/sales/receipts/{request.RequestId}");
         Check(JsonElement.DeepEquals(old.GetProperty("pricing"), receipt.GetProperty("pricing")),"receipt does not recalculate");
+        Check(receipt.GetProperty("branding").GetProperty("name").GetString()=="Test Pharmacy","sale uses saved branding");
+        Check(receipt.GetProperty("branding").GetProperty("logo").GetString()==brand.Logo,"PNG logo preserved on receipt");
+        var brand2=brand with {Id=Guid.NewGuid(),ExpectedId=brand.Id,Name="Updated Hospital"};
+        Check((await Post(admin,"/api/receipt-settings",brand2)).IsSuccessStatusCode,"branding updated");
+        Check((await Post(admin,"/api/receipt-settings",brand with {Id=Guid.NewGuid()})).StatusCode==HttpStatusCode.Conflict,"stale branding update rejected");
+        var historical=await op.GetFromJsonAsync<JsonElement>($"/api/sales/receipts/{request.RequestId}");
+        Check(historical.GetProperty("branding").GetProperty("name").GetString()=="Test Pharmacy","historical branding immutable");
         var adminRequest = await Request(new SalesCounter.CartLine(r.RequestId,1,"Piece"));
         Check((await Post(admin,"/api/sales/checkout",adminRequest)).IsSuccessStatusCode,"admin can checkout");
         Check((await op.GetAsync($"/api/sales/receipts/{adminRequest.RequestId}")).StatusCode == HttpStatusCode.NotFound,"operator cannot read another cashier receipt");

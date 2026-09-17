@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { ReceiptHeader, type Branding } from './ReceiptSettings'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { stockGet } from './stockApi'
 
 export type CheckoutRequest = { requestId: string; lines: { lotId: string; quantity: number; unit: string }[]; quoteHash: string; cashReceived: number }
-type Receipt = { id: string; receiptNumber: string; completedAt: string; operatorName: string; total: number; currency: string;
+type Receipt = { branding: Branding; returnDeadline: string; id: string; receiptNumber: string; completedAt: string; operatorName: string; total: number; currency: string;
   payments: { method: string; amount: number; tendered: number; change: number }[];
   pricing: { subtotal: number; discountTotal: number; chargeTotal: number; totalBeforeRounding: number; roundingAdjustment: number;
     lines: { brandName: string; batchNumber: string; quantity: number; unit: string; baseUnits: number; baseUnit: string; lineTotal: number; finalPrice: number; discountAmount: number; offerName: string | null; charges: { id: string; name: string; amount: number }[] }[] } }
@@ -44,11 +45,11 @@ export function PendingCheckout({ request, onNewSale, onRejected }: { request: C
   </section>
 }
 export function ReceiptView({ receipt }: { receipt: Receipt }) {
-  return <><section className="receipt-paper" aria-label="Sale receipt"><h1>Pharmacy POS</h1><h2>Cash sale receipt</h2><p><strong>{receipt.receiptNumber}</strong></p><p>{new Date(receipt.completedAt).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })} · Bangladesh time</p><p>Operator: {receipt.operatorName}</p>
+  return <><section className="receipt-paper" aria-label="Sale receipt"><ReceiptHeader branding={receipt.branding} /><h2>Cash sale receipt</h2><p><strong>{receipt.receiptNumber}</strong></p><p>{new Date(receipt.completedAt).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })} · Bangladesh time</p><p>Operator: {receipt.operatorName}</p>
     {receipt.pricing.lines.map((l, i) => <article key={i} className="receipt-line"><strong>{l.brandName}</strong><p>Batch {l.batchNumber} · {l.quantity} {l.unit.toLowerCase()} · {l.baseUnits} {l.baseUnit.toLowerCase()}s</p><p>MRP amount: {money(l.lineTotal)}</p>{l.offerName && <p>{l.offerName}: −{money(l.discountAmount)}</p>}{l.charges.map(c => <p key={c.id}>{c.name}: +{money(c.amount)}</p>)}<p><strong>Line total: {money(l.finalPrice)}</strong></p></article>)}
     <dl className="receipt-totals"><div><dt>MRP subtotal</dt><dd>{money(receipt.pricing.subtotal)}</dd></div><div><dt>Discounts</dt><dd>−{money(receipt.pricing.discountTotal)}</dd></div><div><dt>Charges</dt><dd>{money(receipt.pricing.chargeTotal)}</dd></div><div><dt>Before rounding</dt><dd>{money(receipt.pricing.totalBeforeRounding)}</dd></div><div><dt>Rounding adjustment {receipt.pricing.roundingAdjustment > 0 ? '(up)' : receipt.pricing.roundingAdjustment < 0 ? '(down)' : ''}</dt><dd>{receipt.pricing.roundingAdjustment > 0 ? '+' : ''}{money(receipt.pricing.roundingAdjustment)}</dd></div><div><dt><strong>Total paid</strong></dt><dd><strong>{money(receipt.total)}</strong></dd></div>
-      {receipt.payments.map((p, i) => <div key={i}><dt>{p.method} received / change</dt><dd>{money(p.tendered)} / {money(p.change)}</dd></div>)}
-    </dl><p>Sale completed · BDT</p></section><button className="no-print" onClick={() => window.print()}>Print receipt</button></>
+      {receipt.payments.map((p, i) => <Fragment key={i}><div><dt>{p.method} received</dt><dd>{money(p.tendered)}</dd></div><div><dt>Change</dt><dd>{money(p.change)}</dd></div></Fragment>)}
+    </dl><p>Sale completed · BDT</p><footer className="receipt-policy"><p>{receipt.branding.policy}</p><p>Return deadline: {new Date(receipt.returnDeadline).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })} (Bangladesh time)</p></footer></section><button className="no-print" onClick={() => window.print()}>Print receipt</button></>
 }
 export function RecentSales({ onBack }: { onBack: () => void }) {
   const [page, setPage] = useState(1), [rows, setRows] = useState<{ items: { id: string; number: number; completedAt: string; total: number; operatorName: string }[]; hasMore: boolean } | null>(null), [receipt, setReceipt] = useState<Receipt | null>(null), [error, setError] = useState('')

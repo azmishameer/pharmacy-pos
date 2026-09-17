@@ -45,7 +45,7 @@ public static class StockAlertChecks
         var quote=await(await Post(op,"/api/sales/quote",new SalesCounter.CartInput(lines))).Content.ReadFromJsonAsync<JsonElement>();var sale=new CashCheckout.Input(Guid.NewGuid(),lines,quote.GetProperty("quoteHash").GetString(),100000);
         Check((await Post(op,"/api/sales/checkout",sale)).IsSuccessStatusCode,"sell monitored stock");
         Check((await Items(low)).Single().GetProperty("availableUnits").GetInt64()==0,"out of stock alert updates from sale");Check((await Items(expiry)).Length==1,"sold-out batches absent from expiry list");
-        var ret=new ReturnEndpoints.Input(Guid.NewGuid(),sale.RequestId,[0],"Alert return",true,true);var returned=await Post(op,"/api/returns",ret);Check(returned.IsSuccessStatusCode,"held return");
+        var ret=new ReturnEndpoints.Input(Guid.NewGuid(),sale.RequestId,[0],"Alert return",true,true,true);var returned=await Post(op,"/api/returns",ret);Check(returned.IsSuccessStatusCode,"held return");
         var item=(await returned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items")[0].GetProperty("id").GetGuid();
         Check((await Items(low)).Single().GetProperty("availableUnits").GetInt64()==0,"held return not sellable");
         Check((await Post(admin,$"/api/returns/stock/{item}/review",new ReturnEndpoints.Review("Restocked","Checked",true))).IsSuccessStatusCode,"return approval");

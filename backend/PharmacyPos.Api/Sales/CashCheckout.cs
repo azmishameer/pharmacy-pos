@@ -15,6 +15,8 @@ public sealed class Sale
 {
     public Guid Id { get; set; }
     public long Number { get; set; }
+    public Guid? BrandingId { get; set; }
+    public ReceiptBranding? Branding { get; set; }
     public string OperatorId { get; set; } = "";
     public string OperatorName { get; set; } = "";
     public DateTimeOffset CompletedAt { get; set; }
@@ -62,7 +64,7 @@ public static class CashCheckout
         m.HasOne(s => s.Receipt).WithMany().HasForeignKey(s => s.ReceiptId).OnDelete(DeleteBehavior.Restrict);
     }
     private static object Receipt(Sale sale) => new { sale.Id, receiptNumber = $"POS-{sale.Number:D8}", sale.CompletedAt, sale.OperatorName,
-        sale.Total, currency = "BDT", pricing = JsonSerializer.Deserialize<JsonElement>(sale.Snapshot),
+        branding = ReceiptSettings.View(sale.Branding), returnDeadline = sale.CompletedAt.AddDays(15), sale.Total, currency = "BDT", pricing = JsonSerializer.Deserialize<JsonElement>(sale.Snapshot),
         payments = sale.Payments.Select(p => new { p.Method, p.Amount, p.Tendered, p.Change }) };
     public static void MapCashCheckout(this WebApplication app)
     {
@@ -79,14 +81,14 @@ public static class CashCheckout
                 // Same order as receiving; all stock and pricing mutations serialize with checkout.
                 foreach (var key in new[] { 718425911, 718425912, 718425913, 718425914 })
                     await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({key})", ct);
-                var existing = await db.Sales.Include(s => s.Payments).SingleOrDefaultAsync(s => s.Id == input.RequestId, ct);
+                var existing = await db.Sales.Include(s => s.Payments).Include(s => s.Branding).SingleOrDefaultAsync(s => s.Id == input.RequestId, ct);
                 if (existing != null) return existing.OperatorId == actor && existing.RequestHash == hash ? Results.Ok(Receipt(existing))
                     : Results.Conflict(new { message = "This checkout reference was already used. Check recent sales before starting another sale." });
                 var quote = await SalesCounter.BuildQuote(new(input.Lines), db, ct);
                 if (quote.QuoteHash != input.QuoteHash) return Results.Conflict(new { message = "Stock or pricing changed. No sale was made. Refresh prices and check the new total before collecting cash." });
                 if (input.CashReceived < quote.Payable) return Results.BadRequest(new { message = "Cash received is less than the amount due. No sale was made." });
                 var sale = new Sale { Id = input.RequestId, OperatorId = actor, OperatorName = http.User.Identity?.Name ?? actor,
-                    CompletedAt = DateTimeOffset.UtcNow, RequestHash = hash, Snapshot = quote.Snapshot.GetRawText(), Total = quote.Payable,
+                    Branding = await ReceiptSettings.Current(db, ct), CompletedAt = DateTimeOffset.UtcNow, RequestHash = hash, Snapshot = quote.Snapshot.GetRawText(), Total = quote.Payable,
                     Payments = [new() { Method = "Cash", Amount = quote.Payable, Tendered = input.CashReceived, Change = input.CashReceived - quote.Payable }] };
                 db.Sales.Add(sale);
                 foreach (var (lotId, quantity) in quote.Quantities) db.SaleStockMovements.Add(new() { SaleId = sale.Id, ReceiptId = lotId, Quantity = quantity });
@@ -101,7 +103,7 @@ public static class CashCheckout
         app.MapGet("/api/sales/receipts/{id:guid}", async (Guid id, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var actor = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var sale = await db.Sales.AsNoTracking().Include(s => s.Payments).SingleOrDefaultAsync(s => s.Id == id && (http.User.IsInRole("Admin") || s.OperatorId == actor), ct);
+            var sale = await db.Sales.AsNoTracking().Include(s => s.Payments).Include(s => s.Branding).SingleOrDefaultAsync(s => s.Id == id && (http.User.IsInRole("Admin") || s.OperatorId == actor), ct);
             return sale == null ? Results.NotFound() : Results.Ok(Receipt(sale));
         }).RequireAuthorization("Staff");
         app.MapGet("/api/sales/receipts", async (int? page, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {

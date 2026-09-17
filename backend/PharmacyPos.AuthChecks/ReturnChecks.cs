@@ -36,11 +36,27 @@ public static class ReturnChecks
         Check(lookup.GetProperty("lines").EnumerateArray().Sum(l=>l.GetProperty("refund").GetDecimal())==originalTotal,"allocations sum to original paid bill");
         var shares=lookup.GetProperty("lines").EnumerateArray().Select(l=>l.GetProperty("refund").GetDecimal()).ToArray();
         Check(shares[0]==378.26m && shares[1]==56.74m,"discount, charge and rounding shares preserved");
-        var input=new ReturnEndpoints.Input(Guid.NewGuid(),saleRequest.RequestId,[0],"Whole item returned",true,true);
+        var input=new ReturnEndpoints.Input(Guid.NewGuid(),saleRequest.RequestId,[0],"Whole item returned",true,true,true);
         Check((await op.PostAsJsonAsync("/api/returns",input)).StatusCode==HttpStatusCode.BadRequest,"refund CSRF");
         Check((await Post(op,"/api/returns",input with {LineIndexes=[0,0]})).StatusCode==HttpStatusCode.BadRequest,"duplicate selection denied");
         Check((await Post(op,"/api/returns",input with {LineIndexes=[9]})).StatusCode==HttpStatusCode.BadRequest,"invalid line denied");
         Check((await Post(op,"/api/returns",input with {CashRefunded=false})).StatusCode==HttpStatusCode.BadRequest,"cash confirmation required");
+        Check((await Post(op,"/api/returns",input with {ReceiptPresented=false})).StatusCode==HttpStatusCode.BadRequest,"original receipt required");
+        var clock=DateTimeOffset.UtcNow;
+        Check(ReturnEndpoints.WithinReturnWindow(clock.AddDays(-15),clock),"exactly 15 days accepted");
+        Check(!ReturnEndpoints.WithinReturnWindow(clock.AddDays(-15).AddTicks(-1),clock),"after deadline rejected");
+        using(var scope=services.CreateScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+            var saved=await db.Sales.SingleAsync(x=>x.Id==saleRequest.RequestId); saved.CompletedAt=clock.AddDays(-16); await db.SaveChangesAsync();
+        }
+        Check((await Post(op,"/api/returns",input)).StatusCode==HttpStatusCode.Conflict,"operator cannot refund expired receipt");
+        Check((await Post(admin,"/api/returns",input)).StatusCode==HttpStatusCode.Conflict,"admin cannot bypass deadline");
+        var expired=await op.GetFromJsonAsync<JsonElement>($"/api/returns/sale?number={number}");
+        Check(!expired.GetProperty("canReturn").GetBoolean(),"lookup marks expired receipt");
+        using(var scope=services.CreateScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+            var saved=await db.Sales.SingleAsync(x=>x.Id==saleRequest.RequestId); saved.CompletedAt=clock.AddDays(-14); await db.SaveChangesAsync();
+        }
         var race=await Task.WhenAll(Post(op,"/api/returns",input),Post(op,"/api/returns",input));
         Check(race.All(x=>x.IsSuccessStatusCode),"operator refund without approval and safe retry");
         var first=await race[0].Content.ReadFromJsonAsync<JsonElement>();
@@ -84,6 +100,12 @@ public static class ReturnChecks
         }
         var disposed=await admin.GetFromJsonAsync<JsonElement>("/api/returns/stock?status=Disposed");
         Check(!disposed.GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("id").GetGuid()==secondId),"old disposal leaves operational list");
+        using(var scope=services.CreateScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+            var saved=await db.Sales.SingleAsync(x=>x.Id==saleRequest.RequestId); saved.CompletedAt=clock.AddDays(-16); await db.SaveChangesAsync();
+            Check((await db.SaleReturns.FindAsync(input.RequestId))!.ReceiptPresented==true,"receipt confirmation audited");
+        }
+        Check((await Post(op,"/api/returns",input)).IsSuccessStatusCode,"committed refund replay survives deadline");
         var pure=new Sale {Total=1,Snapshot="{\"lines\":[{\"finalPrice\":0.5},{\"finalPrice\":0.5},{\"finalPrice\":0}]}"};
         Check(RefundAllocation.For(pure).SequenceEqual(new[]{.5m,.5m,0m}),"zero priced item receives no paid share");
         Console.WriteLine("PASS: whole-item refunds, exact original paid allocation, retry/duplicate safety, cashier audit, held stock, admin restock, expiry and disposal accounting.");

@@ -12,10 +12,11 @@ namespace PharmacyPos.Api.Returns;
 
 public static class ReturnEndpoints
 {
-    public sealed record Input(Guid RequestId, Guid SaleId, List<int>? LineIndexes, string? Reason, bool ItemsReceived, bool CashRefunded);
+    public static bool WithinReturnWindow(DateTimeOffset purchased, DateTimeOffset now) => now >= purchased && now <= purchased.AddDays(15);
+    public sealed record Input(Guid RequestId, Guid SaleId, List<int>? LineIndexes, string? Reason, bool ItemsReceived, bool CashRefunded, bool ReceiptPresented = false);
     public sealed record Review(string Action, string? Reason, bool Checked);
     private static object Item(ReturnedItem i) => new { i.Id, i.LineIndex, i.BrandName, i.BatchNumber, i.BaseUnit, i.Packs, i.Unit, i.Quantity, i.Refund, i.Status, i.ReviewerName, i.ReviewedAt, i.ReviewReason };
-    private static object Result(SaleReturn r) => new { r.Id, r.SaleId, receiptNumber = $"POS-{r.Sale.Number:D8}", r.Amount, r.Method, r.Reason, r.ActorName, r.At, items = r.Items.OrderBy(i => i.LineIndex).Select(Item) };
+    private static object Result(SaleReturn r) => new { r.Id, r.SaleId, receiptNumber = $"POS-{r.Sale.Number:D8}", r.Amount, r.Method, r.ReceiptPresented, r.Reason, r.ActorName, r.At, items = r.Items.OrderBy(i => i.LineIndex).Select(Item) };
     public static void MapReturnEndpoints(this WebApplication app) {
         if (!app.Environment.IsDevelopment()) return;
         app.MapGet("/api/returns/sale", async (string? number, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
@@ -27,7 +28,7 @@ public static class ReturnEndpoints
             var returned = await db.ReturnedItems.AsNoTracking().Where(i => i.SaleId == sale.Id).Select(i => i.LineIndex).ToListAsync(ct);
             using var snapshot = JsonDocument.Parse(sale.Snapshot); var amounts = RefundAllocation.For(sale);
             var lines = snapshot.RootElement.GetProperty("lines").EnumerateArray().Select((l,i) => new { index = i, details = l.Clone(), refund = amounts[i], alreadyReturned = returned.Contains(i) }).ToList();
-            return Results.Ok(new { saleId = sale.Id, receiptNumber = $"POS-{sale.Number:D8}", sale.CompletedAt, sale.Total, lines });
+            return Results.Ok(new { saleId = sale.Id, receiptNumber = $"POS-{sale.Number:D8}", sale.CompletedAt, sale.Total, returnDeadline = sale.CompletedAt.AddDays(15), canReturn = WithinReturnWindow(sale.CompletedAt, DateTimeOffset.UtcNow), lines });
         }).RequireAuthorization(p => p.RequireRole("Admin","Operator"));
         app.MapPost("/api/returns", async (Input input, PharmacyDbContext db, HttpContext http, IAntiforgery csrf, CancellationToken ct) => {
             try {
@@ -44,11 +45,13 @@ public static class ReturnEndpoints
                     ? Results.Ok(Result(existing)) : Results.Conflict(new { message = "This refund reference was already used. Check the return history before starting another refund." });
                 var sale = await db.Sales.SingleOrDefaultAsync(s => s.Id == input.SaleId, ct);
                 if (sale == null) return Results.NotFound();
+                if (!WithinReturnWindow(sale.CompletedAt, DateTimeOffset.UtcNow)) return Results.Conflict(new { message = $"Receipt POS-{sale.Number:D8}: the 15-day return/refund period has ended. No refund was recorded." });
+                if (!input.ReceiptPresented) return Results.BadRequest(new { message = "The original receipt must be presented before a return or refund." });
                 using var json = JsonDocument.Parse(sale.Snapshot); var lines = json.RootElement.GetProperty("lines").EnumerateArray().ToArray();
                 if (indexes.Any(i => i >= lines.Length)) return Results.BadRequest(new { message = "Select valid complete receipt items." });
                 if (await db.ReturnedItems.AnyAsync(i => i.SaleId == sale.Id && indexes.Contains(i.LineIndex),ct)) return Results.Conflict(new { message = "An item was already returned. Reload the receipt before issuing another refund." });
                 var allocations = RefundAllocation.For(sale);
-                var r = new SaleReturn { Id = input.RequestId, SaleId = sale.Id, Sale = sale, Reason = reason, ActorId = actor, ActorName = http.User.Identity?.Name ?? actor, At = DateTimeOffset.UtcNow, Amount = indexes.Sum(i => allocations[i]) };
+                var r = new SaleReturn { Id = input.RequestId, SaleId = sale.Id, Sale = sale, ReceiptPresented = true, Reason = reason, ActorId = actor, ActorName = http.User.Identity?.Name ?? actor, At = DateTimeOffset.UtcNow, Amount = indexes.Sum(i => allocations[i]) };
                 foreach (var index in indexes) {
                     var l = lines[index];
                     r.Items.Add(new ReturnedItem { SaleId = sale.Id, LineIndex = index, ReceiptId = l.GetProperty("lotId").GetGuid(),

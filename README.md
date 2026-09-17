@@ -134,3 +134,5 @@ Keep source code and the npm lockfile in Git. Generated builds and downloaded
 packages are ignored. Never commit passwords, pharmacy records, database backups,
 or private certificates. GitHub stores code; it is not the pharmacy database or
 its backup service.
+
+Receipt branding, 80 mm printing and the enforced 15-day return policy are documented in [receipt printing](docs/receipt-printing.md).
