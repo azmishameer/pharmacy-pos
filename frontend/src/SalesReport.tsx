@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { stockExport, stockGet } from './stockApi'
 
-type Totals = { salesCount: number; refundCount: number; subtotal: number; discounts: number; charges: number; rounding: number; sales: number; refunds: number; netSales: number; cashCollected: number; cashRefunded: number; netCash: number }
+type Totals = { payments: { method: string; collected: number; refunded: number; net: number }[]; salesCount: number; refundCount: number; subtotal: number; discounts: number; charges: number; rounding: number; sales: number; refunds: number; netSales: number; cashCollected: number; cashRefunded: number; netCash: number }
 type Report = { from: string; to: string; timeZone: string; generatedAt: string; totals: Totals; staff: { staffId: string; username: string; totals: Totals }[] }
 const money = (n: number) => `৳${n.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -26,8 +26,8 @@ export function SalesReport({ onBack }: { onBack: () => void }) {
   </>
 }
 function Summary({ totals: t }: { totals: Totals }) {
-  return <dl className="report-totals">{[
+  return <><dl className="report-totals">{[
     ['Completed sales', String(t.salesCount)], ['Refund transactions', String(t.refundCount)], ['MRP subtotal', money(t.subtotal)], ['Discounts', money(t.discounts)], ['Charges', money(t.charges)], ['Rounding adjustment', money(t.rounding)],
     ['Sales total', money(t.sales)], ['Refunds', money(t.refunds)], ['Net sales', money(t.netSales)], ['Cash collected', money(t.cashCollected)], ['Cash refunded', money(t.cashRefunded)], ['Net cash', money(t.netCash)],
-  ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+  ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><table className="payment-summary"><caption>Payment methods</caption><thead><tr><th>Method</th><th>Collected</th><th>Refunded</th><th>Net</th></tr></thead><tbody>{t.payments.map(p => <tr key={p.method}><td>{p.method}</td><td>{money(p.collected)}</td><td>{money(p.refunded)}</td><td>{money(p.net)}</td></tr>)}</tbody></table></>
 }

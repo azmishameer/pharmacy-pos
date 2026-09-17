@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Sales;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -13,21 +14,22 @@ namespace PharmacyPos.Api.Returns;
 public static class ReturnEndpoints
 {
     public static bool WithinReturnWindow(DateTimeOffset purchased, DateTimeOffset now) => now >= purchased && now <= purchased.AddDays(15);
-    public sealed record Input(Guid RequestId, Guid SaleId, List<int>? LineIndexes, string? Reason, bool ItemsReceived, bool CashRefunded, bool ReceiptPresented = false);
+    public sealed record Input(Guid RequestId, Guid SaleId, List<int>? LineIndexes, string? Reason, bool ItemsReceived, bool CashRefunded, bool ReceiptPresented = false, string RefundDestination = "Cash", List<RefundPayments.ReferenceInput>? PaymentReferences = null);
     public sealed record Review(string Action, string? Reason, bool Checked);
     private static object Item(ReturnedItem i) => new { i.Id, i.LineIndex, i.BrandName, i.BatchNumber, i.BaseUnit, i.Packs, i.Unit, i.Quantity, i.Refund, i.Status, i.ReviewerName, i.ReviewedAt, i.ReviewReason };
-    private static object Result(SaleReturn r) => new { r.Id, r.SaleId, receiptNumber = $"POS-{r.Sale.Number:D8}", r.Amount, r.Method, r.ReceiptPresented, r.Reason, r.ActorName, r.At, items = r.Items.OrderBy(i => i.LineIndex).Select(Item) };
+    private static object Result(SaleReturn r) => new { r.Id, r.SaleId, receiptNumber = $"POS-{r.Sale.Number:D8}", r.Amount, r.Method, r.RefundDestination, payments = r.Payments.OrderBy(p => Array.IndexOf(PaymentMethods.All, p.Method)).Select(p => new { p.Method, p.Amount, p.Reference }), r.ReceiptPresented, r.Reason, r.ActorName, r.At, items = r.Items.OrderBy(i => i.LineIndex).Select(Item) };
     public static void MapReturnEndpoints(this WebApplication app) {
 
         app.MapGet("/api/returns/sale", async (string? number, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var text = (number ?? "").Trim(); if (text.StartsWith("POS-",StringComparison.OrdinalIgnoreCase)) text = text[4..];
             if (!long.TryParse(text, out var n) || n <= 0) return Results.BadRequest(new { message = "Enter the receipt number, for example POS-00000001." });
-            var sale = await db.Sales.AsNoTracking().SingleOrDefaultAsync(s => s.Number == n, ct);
+            var sale = await db.Sales.AsNoTracking().Include(s => s.Payments).SingleOrDefaultAsync(s => s.Number == n, ct);
             if (sale == null) return Results.NotFound(new { message = "Receipt not found." });
             var returned = await db.ReturnedItems.AsNoTracking().Where(i => i.SaleId == sale.Id).Select(i => i.LineIndex).ToListAsync(ct);
             using var snapshot = JsonDocument.Parse(sale.Snapshot); var amounts = RefundAllocation.For(sale);
-            var lines = snapshot.RootElement.GetProperty("lines").EnumerateArray().Select((l,i) => new { index = i, details = l.Clone(), refund = amounts[i], alreadyReturned = returned.Contains(i) }).ToList();
+            var paymentShares = RefundPayments.For(sale);
+            var lines = snapshot.RootElement.GetProperty("lines").EnumerateArray().Select((l,i) => new { index = i, details = l.Clone(), refund = amounts[i], originalPayments = paymentShares[i], alreadyReturned = returned.Contains(i) }).ToList();
             return Results.Ok(new { saleId = sale.Id, receiptNumber = $"POS-{sale.Number:D8}", sale.CompletedAt, sale.Total, returnDeadline = sale.CompletedAt.AddDays(15), canReturn = WithinReturnWindow(sale.CompletedAt, DateTimeOffset.UtcNow), lines });
         }).RequireAuthorization(p => p.RequireRole("Admin","Operator"));
         app.MapPost("/api/returns", async (Input input, PharmacyDbContext db, HttpContext http, IAntiforgery csrf, CancellationToken ct) => {
@@ -35,15 +37,17 @@ public static class ReturnEndpoints
                 await csrf.ValidateRequestAsync(http);
                 var reason = input.Reason?.Trim() ?? ""; var indexes = input.LineIndexes?.Order().ToArray() ?? [];
                 if (input.RequestId == Guid.Empty || input.SaleId == Guid.Empty || !input.ItemsReceived || !input.CashRefunded || reason.Length is < 1 or > 1000
-                    || indexes.Length is < 1 or > 100 || indexes.Any(i => i < 0) || indexes.Distinct().Count() != indexes.Length)
-                    return Results.BadRequest(new { message = "Select complete receipt items, enter the reason, and confirm the goods and cash refund." });
+                    || input.PaymentReferences?.Any(p => p == null) == true || input.RefundDestination is not ("Cash" or "Original") || indexes.Length is < 1 or > 100 || indexes.Any(i => i < 0) || indexes.Distinct().Count() != indexes.Length)
+                    return Results.BadRequest(new { message = "Select complete receipt items, enter the reason, and confirm the goods and completed refund." });
                 var actor = http.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
                 await using var tx = await db.Database.BeginTransactionAsync(ct);
                 await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(718425912)",ct);
-                var existing = await db.SaleReturns.Include(r => r.Sale).Include(r => r.Items).SingleOrDefaultAsync(r => r.Id == input.RequestId, ct);
-                if (existing != null) return existing.ActorId == actor && existing.SaleId == input.SaleId && existing.Reason == reason && existing.Items.Select(i => i.LineIndex).Order().SequenceEqual(indexes)
+                var existing = await db.SaleReturns.Include(r => r.Sale).Include(r => r.Items).Include(r => r.Payments).SingleOrDefaultAsync(r => r.Id == input.RequestId, ct);
+                if (existing != null) return existing.ActorId == actor && existing.SaleId == input.SaleId && existing.Reason == reason && existing.RefundDestination == input.RefundDestination
+                    && existing.Payments.Where(p => p.Method != "Cash").Select(p => (p.Method, p.Reference)).OrderBy(p => p.Method)
+                        .SequenceEqual((input.PaymentReferences ?? []).Select(p => (p.Method, Reference: PaymentMethods.Reference(p.Reference))).OrderBy(p => p.Method)) && existing.Items.Select(i => i.LineIndex).Order().SequenceEqual(indexes)
                     ? Results.Ok(Result(existing)) : Results.Conflict(new { message = "This refund reference was already used. Check the return history before starting another refund." });
-                var sale = await db.Sales.SingleOrDefaultAsync(s => s.Id == input.SaleId, ct);
+                var sale = await db.Sales.Include(s => s.Payments).SingleOrDefaultAsync(s => s.Id == input.SaleId, ct);
                 if (sale == null) return Results.NotFound();
                 if (!WithinReturnWindow(sale.CompletedAt, DateTimeOffset.UtcNow)) return Results.Conflict(new { message = $"Receipt POS-{sale.Number:D8}: the 15-day return/refund period has ended. No refund was recorded." });
                 if (!input.ReceiptPresented) return Results.BadRequest(new { message = "The original receipt must be presented before a return or refund." });
@@ -51,7 +55,8 @@ public static class ReturnEndpoints
                 if (indexes.Any(i => i >= lines.Length)) return Results.BadRequest(new { message = "Select valid complete receipt items." });
                 if (await db.ReturnedItems.AnyAsync(i => i.SaleId == sale.Id && indexes.Contains(i.LineIndex),ct)) return Results.Conflict(new { message = "An item was already returned. Reload the receipt before issuing another refund." });
                 var allocations = RefundAllocation.For(sale);
-                var r = new SaleReturn { Id = input.RequestId, SaleId = sale.Id, Sale = sale, ReceiptPresented = true, Reason = reason, ActorId = actor, ActorName = http.User.Identity?.Name ?? actor, At = DateTimeOffset.UtcNow, Amount = indexes.Sum(i => allocations[i]) };
+                var refundPayments = RefundPayments.Validate(RefundPayments.Selected(sale, indexes, input.RefundDestination), input.PaymentReferences);
+                var r = new SaleReturn { Id = input.RequestId, SaleId = sale.Id, Sale = sale, RefundDestination = input.RefundDestination, Payments = refundPayments, Method = refundPayments.Count > 1 ? "Split" : refundPayments.FirstOrDefault()?.Method ?? "Cash", ReceiptPresented = true, Reason = reason, ActorId = actor, ActorName = http.User.Identity?.Name ?? actor, At = DateTimeOffset.UtcNow, Amount = indexes.Sum(i => allocations[i]) };
                 foreach (var index in indexes) {
                     var l = lines[index];
                     r.Items.Add(new ReturnedItem { SaleId = sale.Id, LineIndex = index, ReceiptId = l.GetProperty("lotId").GetGuid(),
@@ -60,12 +65,13 @@ public static class ReturnEndpoints
                 }
                 db.SaleReturns.Add(r); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
                 return Results.Ok(Result(r));
-            } catch (AntiforgeryValidationException) { return Results.BadRequest(new { message = "Refresh your sign-in before recording a refund." }); }
-            catch (Exception e) when (e is NpgsqlException or DbUpdateException or OperationCanceledException) { return Results.Json(new { message = "Refund result not confirmed. Retry the same reference; do not give cash again." },statusCode:503); }
+            } catch (SalesCounter.PricingFailure e) { return Results.Json(new { message = e.Message }, statusCode: e.Status); }
+            catch (AntiforgeryValidationException) { return Results.BadRequest(new { message = "Refresh your sign-in before recording a refund." }); }
+            catch (Exception e) when (e is NpgsqlException or DbUpdateException or OperationCanceledException) { return Results.Json(new { message = "Refund result not confirmed. Retry the same reference; do not issue the refund again." },statusCode:503); }
         }).RequireAuthorization(p => p.RequireRole("Admin","Operator"));
         app.MapGet("/api/returns", async (int? page, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store"; var n = page ?? 1; if (n is < 1 or > 10000) return Results.BadRequest();
-            var rows = await db.SaleReturns.AsNoTracking().Include(r => r.Sale).Include(r => r.Items).OrderByDescending(r => r.At).ThenBy(r => r.Id).Skip((n-1)*25).Take(26).ToListAsync(ct);
+            var rows = await db.SaleReturns.AsNoTracking().Include(r => r.Sale).Include(r => r.Items).Include(r => r.Payments).OrderByDescending(r => r.At).ThenBy(r => r.Id).Skip((n-1)*25).Take(26).ToListAsync(ct);
             return Results.Ok(new { items = rows.Take(25).Select(Result), hasMore = rows.Count > 25 });
         }).RequireAuthorization(p => p.RequireRole("Admin","Operator"));
         app.MapGet("/api/returns/stock", async (string? status, int? page, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {

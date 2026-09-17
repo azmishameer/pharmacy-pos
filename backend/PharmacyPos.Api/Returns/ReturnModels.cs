@@ -13,6 +13,8 @@ public sealed class SaleReturn
     public decimal Amount { get; set; }
     public string Method { get; set; } = "Cash";
     public bool? ReceiptPresented { get; set; }
+    public string RefundDestination { get; set; } = "Cash";
+    public List<ReturnPayment> Payments { get; set; } = [];
     public string Reason { get; set; } = "";
     public string ActorId { get; set; } = "";
     public string ActorName { get; set; } = "";
@@ -45,6 +47,12 @@ public sealed class ReturnedItem
 public static class ReturnMapping
 {
     public static void MapReturns(this ModelBuilder model) {
+        var payment = model.Entity<ReturnPayment>(); payment.ToTable("return_payments"); payment.HasKey(p => p.Id);
+        payment.Property(p => p.Method).HasMaxLength(30); payment.Property(p => p.Reference).HasMaxLength(100); payment.Property(p => p.Amount).HasPrecision(18,2);
+        payment.HasIndex(p => new { p.ReturnId, p.Method }).IsUnique();
+        payment.HasOne(p => p.Return).WithMany(r => r.Payments).HasForeignKey(p => p.ReturnId).OnDelete(DeleteBehavior.Restrict);
+        payment.ToTable("return_payments", t => t.HasCheckConstraint("ck_return_payment", "\"Amount\" >= 0 AND (\"Method\" = 'Cash' AND \"Reference\" IS NULL OR \"Method\" IN ('Card','bKash','Nagad') AND \"Reference\" IS NOT NULL AND length(btrim(\"Reference\")) > 0)"));
+        model.Entity<SaleReturn>().Property(r => r.RefundDestination).HasMaxLength(20).HasDefaultValue("Cash");
         var r = model.Entity<SaleReturn>(); r.ToTable("sale_returns", t => t.HasCheckConstraint("ck_return_amount", "\"Amount\" >= 0")); r.HasKey(x => x.Id);
         r.HasAlternateKey(x => new { x.Id, x.SaleId }); r.Property(x => x.Amount).HasPrecision(18,2);
         r.Property(x => x.Method).HasMaxLength(30); r.Property(x => x.Reason).HasMaxLength(1000); r.Property(x => x.ActorName).HasMaxLength(256);

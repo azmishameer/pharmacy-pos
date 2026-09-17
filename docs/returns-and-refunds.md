@@ -11,8 +11,8 @@ three. Other receipt rows may remain with the customer. Each row can be returned
 only once; different rows may be returned on different days. The server accepts
 row indexes only and derives all quantities from the original immutable receipt.
 
-Admins and operators can record a return and cash refund immediately, with no
-approval. Staff confirm full receipt of the items, the cash refund and a reason.
+Admins and operators can record a return and refund immediately, with no
+approval. Staff confirm full receipt of the items, the completed refund and a reason.
 The record preserves original sale ID, row indexes, sold pack quantities, base units,
 refund amount, method, staff identity/name and timestamp. Return history is available
 to admins and operators, including returns processed by other cashiers. Exact receipt
@@ -54,16 +54,16 @@ has one terminal decision (Restocked or Disposed), with admin identity/time/reas
 
 A unique return request ID is stored in browser session storage before posting. Reloading
 the returns workspace or retrying after a lost response uses the same ID. Staff must
-not give cash again on retry. The return/refund and held items commit together under
+not issue the refund again on retry. The return/refund and held items commit together under
 the stock transaction lock. A unique sale/row constraint prevents duplicate refunds;
 identical retries return the original result. Admin decisions share the catalogue/stock
 lock order with checkout and restock once even on retry. No physical payment service
-is called: cash-refund records reflect staff confirmation of manually issued cash.
+is called: refund records reflect staff confirmation of cash issued or refunds completed on the external terminal or merchant account.
 
 ## Endpoints and checks
 
 - `GET /api/returns/sale?number=POS-00000001`: receipt lookup and refund shares.
-- `POST /api/returns`: complete-row return and cash refund; Admin/Operator + CSRF.
+- `POST /api/returns`: complete-row return and refund; Admin/Operator + CSRF.
 - `GET /api/returns`: paginated audit history.
 - `GET /api/returns/stock?status=Held`: held, restocked or recent disposed items.
 - `POST /api/returns/stock/{id}/review`: Admin + CSRF, inspection/restock or disposal.
@@ -76,11 +76,13 @@ expiry blocking, main/return disposal quantities, three-month retention and audi
 All existing checkout, inventory, pricing and authentication tests pass.
 
 No unreceipted returns, partial-row returns, refunds without returned goods, exchanges,
-non-cash refunds or reversal of a completed return are included in this milestone.
-All routes remain development-only, consistent with the existing application.
+or reversal of a completed return are included in this milestone.
+Routes are available in Production with the same role and CSRF protections.
 
 Browser verification passed on disposable records: an Operator returned the complete
 five-tablet item on POS-00000001 for BDT 95. The audit showed the operator and reason,
 and Held inventory had no approval controls. An Admin then recorded inspection and
 approved it; the item left Held stock and the counter showed five available tablets
 in its original previously sold-out batch. No real pharmacy data was modified.
+
+For card, bKash, Nagad, split sales and choosing cash versus original-method refunds, see [payment methods](payment-methods.md).

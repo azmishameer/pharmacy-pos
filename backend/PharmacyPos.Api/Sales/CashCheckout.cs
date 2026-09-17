@@ -31,6 +31,8 @@ public sealed class SalePayment
     public Guid SaleId { get; set; }
     public Sale Sale { get; set; } = null!;
     public string Method { get; set; } = "Cash";
+    public string? Reference { get; set; }
+    public string? ReferenceKey { get; set; }
     public decimal Amount { get; set; }
     public decimal Tendered { get; set; }
     public decimal Change { get; set; }
@@ -45,7 +47,7 @@ public sealed class SaleStockMovement
 }
 public static class CashCheckout
 {
-    public sealed record Input(Guid RequestId, List<SalesCounter.CartLine>? Lines, string? QuoteHash, decimal CashReceived);
+    public sealed record Input(Guid RequestId, List<SalesCounter.CartLine>? Lines, string? QuoteHash, decimal CashReceived = 0, List<PaymentMethods.Input>? Payments = null);
     public static void MapSaleData(this ModelBuilder model)
     {
         var sale = model.Entity<Sale>(); sale.ToTable("sales"); sale.HasKey(s => s.Id);
@@ -55,6 +57,9 @@ public static class CashCheckout
         sale.HasOne<IdentityUser>().WithMany().HasForeignKey(s => s.OperatorId).OnDelete(DeleteBehavior.Restrict);
         sale.HasIndex(s => new { s.OperatorId, s.CompletedAt });
         var p = model.Entity<SalePayment>(); p.ToTable("sale_payments", t => t.HasCheckConstraint("ck_cash_payment", "\"Amount\" >= 0 AND \"Tendered\" >= \"Amount\" AND \"Change\" = \"Tendered\" - \"Amount\""));
+        p.Property(s => s.Reference).HasMaxLength(100); p.Property(s => s.ReferenceKey).HasMaxLength(100);
+        p.HasIndex(s => new { s.Method, s.ReferenceKey }).IsUnique().HasFilter("\"ReferenceKey\" IS NOT NULL");
+        p.ToTable("sale_payments", t => t.HasCheckConstraint("ck_payment_method", "\"Method\" = 'Cash' AND \"Reference\" IS NULL AND \"ReferenceKey\" IS NULL OR \"Method\" IN ('Card','bKash','Nagad') AND \"Reference\" IS NOT NULL AND length(btrim(\"Reference\")) > 0 AND \"ReferenceKey\" IS NOT NULL AND \"Tendered\" = \"Amount\" AND \"Change\" = 0"));
         p.HasKey(s => s.Id); p.Property(s => s.Method).HasMaxLength(30);
         p.Property(s => s.Amount).HasPrecision(18,2); p.Property(s => s.Tendered).HasPrecision(18,2); p.Property(s => s.Change).HasPrecision(18,2);
         p.HasOne(s => s.Sale).WithMany(s => s.Payments).HasForeignKey(s => s.SaleId).OnDelete(DeleteBehavior.Restrict);
@@ -65,7 +70,7 @@ public static class CashCheckout
     }
     private static object Receipt(Sale sale) => new { sale.Id, receiptNumber = $"POS-{sale.Number:D8}", sale.CompletedAt, sale.OperatorName,
         branding = ReceiptSettings.View(sale.Branding), returnDeadline = sale.CompletedAt.AddDays(15), sale.Total, currency = "BDT", pricing = JsonSerializer.Deserialize<JsonElement>(sale.Snapshot),
-        payments = sale.Payments.Select(p => new { p.Method, p.Amount, p.Tendered, p.Change }) };
+        payments = sale.Payments.OrderBy(p => Array.IndexOf(PaymentMethods.All, p.Method)).Select(p => new { p.Method, p.Amount, p.Tendered, p.Change, p.Reference }) };
     public static void MapCashCheckout(this WebApplication app)
     {
 
@@ -76,7 +81,9 @@ public static class CashCheckout
                 if (input.RequestId == Guid.Empty || input.QuoteHash?.Length != 64 || input.CashReceived < 0 || input.CashReceived > 1000000000000m || decimal.Round(input.CashReceived,2) != input.CashReceived)
                     return Results.BadRequest(new { message = "Enter a valid cash amount with up to two decimals and refresh cart prices." });
                 var actor = http.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-                var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input, SalesCounter.JsonOptions))));
+                var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input.Payments == null
+                    ? (object)new { input.RequestId, input.Lines, input.QuoteHash, input.CashReceived }
+                    : input, SalesCounter.JsonOptions))));
                 await using var tx = await db.Database.BeginTransactionAsync(ct);
                 // Same order as receiving; all stock and pricing mutations serialize with checkout.
                 foreach (var key in new[] { 718425911, 718425912, 718425913, 718425914 })
@@ -85,11 +92,18 @@ public static class CashCheckout
                 if (existing != null) return existing.OperatorId == actor && existing.RequestHash == hash ? Results.Ok(Receipt(existing))
                     : Results.Conflict(new { message = "This checkout reference was already used. Check recent sales before starting another sale." });
                 var quote = await SalesCounter.BuildQuote(new(input.Lines), db, ct);
-                if (quote.QuoteHash != input.QuoteHash) return Results.Conflict(new { message = "Stock or pricing changed. No sale was made. Refresh prices and check the new total before collecting cash." });
-                if (input.CashReceived < quote.Payable) return Results.BadRequest(new { message = "Cash received is less than the amount due. No sale was made." });
+                if (quote.QuoteHash != input.QuoteHash) return Results.Conflict(new { message = "Stock or pricing changed. No sale was made. Refresh prices and check the new total before collecting payment." });
+                if (input.Payments == null && input.CashReceived < quote.Payable) return Results.BadRequest(new { message = "Cash received is less than the amount due. No sale was made." });
+                if (input.Payments != null && input.CashReceived != 0) return Results.BadRequest(new { message = "Use the cash received field inside split payments only." });
+                var payments = input.Payments == null
+                    ? new List<SalePayment> { new() { Method = "Cash", Amount = quote.Payable, Tendered = input.CashReceived, Change = input.CashReceived - quote.Payable } }
+                    : PaymentMethods.Validate(input.Payments, quote.Payable);
+                foreach (var payment in payments.Where(p => p.ReferenceKey != null))
+                    if (await db.Set<SalePayment>().AnyAsync(p => p.Method == payment.Method && p.ReferenceKey == payment.ReferenceKey, ct))
+                        return Results.Conflict(new { message = $"This {payment.Method} transaction reference is already recorded. Check recent receipts; do not take another payment." });
                 var sale = new Sale { Id = input.RequestId, OperatorId = actor, OperatorName = http.User.Identity?.Name ?? actor,
                     Branding = await ReceiptSettings.Current(db, ct), CompletedAt = DateTimeOffset.UtcNow, RequestHash = hash, Snapshot = quote.Snapshot.GetRawText(), Total = quote.Payable,
-                    Payments = [new() { Method = "Cash", Amount = quote.Payable, Tendered = input.CashReceived, Change = input.CashReceived - quote.Payable }] };
+                    Payments = payments };
                 db.Sales.Add(sale);
                 foreach (var (lotId, quantity) in quote.Quantities) db.SaleStockMovements.Add(new() { SaleId = sale.Id, ReceiptId = lotId, Quantity = quantity });
                 await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);

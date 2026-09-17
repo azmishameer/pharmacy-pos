@@ -37,7 +37,7 @@ public static class ReportChecks
         Check(t.GetProperty("subtotal").GetDecimal()==120&&t.GetProperty("discounts").GetDecimal()==30&&t.GetProperty("charges").GetDecimal()==9&&t.GetProperty("rounding").GetDecimal()==1,"immutable receipt breakdown");
         var staff=r.GetProperty("staff").EnumerateArray().ToArray();Check(staff.Length==2,"refund-only staff included");
         Check(staff.Single(s=>s.GetProperty("username").GetString()=="operator-test").GetProperty("totals").GetProperty("netSales").GetDecimal()==-25,"refund actor attribution");
-        var csv=await admin.GetStringAsync(url+"&format=csv");Check(csv.Contains("TOTAL")&&csv.Contains("operator-test")&&csv.Split("\r\n")[1].Split(',').Skip(12).Select(v=>decimal.Parse(v,System.Globalization.CultureInfo.InvariantCulture)).SequenceEqual(new decimal[]{100,25,75,100,25,75}),"CSV totals agree");
+        var csv=await admin.GetStringAsync(url+"&format=csv");Check(csv.Contains("TOTAL")&&csv.Contains("operator-test")&&csv.Split("\r\n")[1].Split(',').Skip(12).Select(v=>decimal.Parse(v,System.Globalization.CultureInfo.InvariantCulture)).SequenceEqual(new decimal[]{100,25,75,100,25,75}.Concat(Enumerable.Repeat(0m,9))),"CSV totals agree");
         var zero=new SalesReports.Totals(0,0,0,0,0,0,0,0,0,0);
         Check(SalesReports.Csv(new(date,date,"Asia/Dhaka",DateTimeOffset.UtcNow,zero,[new("id","=formula",zero)])).Contains("\"'=formula\""),"CSV formula escaping");
         foreach(var query in new[]{"from=nope","from=2030-02-01&to=2030-01-01","from=2020-01-01&to=2030-01-01","to=9999-12-31","format=bad"})Check((await admin.GetAsync("/api/reports/sales?"+query)).StatusCode==HttpStatusCode.BadRequest,"invalid range/format rejected");

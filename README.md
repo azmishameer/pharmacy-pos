@@ -139,3 +139,5 @@ Receipt branding, 80 mm printing and the enforced 15-day return policy are docum
 ## Client deployment
 
 Build the Windows x64 installer package with `python3 scripts/build-release.py`. See [Windows deployment](docs/windows-deployment.md) for installation, HTTPS, updates, backups and the future move to online hosting. Business endpoints now work in Production mode with the same role and CSRF checks.
+
+Cash, Card, bKash and Nagad recording, split payments, refund destinations and payment-method reporting are covered in [payment methods](docs/payment-methods.md).

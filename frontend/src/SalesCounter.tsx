@@ -43,7 +43,7 @@ export function SalesCounter({ onBack, username, roles }: { onBack: () => void; 
   if (history) return <RecentSales onBack={() => setHistory(false)} />
   return <>
     <div className="page-heading"><div><p className="eyebrow">SALES COUNTER</p><h1>New sale</h1><p className="subtitle">Find a medicine and build the customer’s cart.</p></div><div className="heading-actions"><button onClick={() => setAlertsOpen(true)}>Stock alerts</button><button onClick={() => setHistory(true)}>Recent sales</button>{roles.some(r => r === 'Admin' || r === 'Operator') && <button onClick={() => setReturnsOpen(true)}>Returns & refunds</button>}<button onClick={onBack}>Medicine catalogue</button></div></div>
-    <p className="counter-preview">Adding items does not reserve stock. Complete cash checkout to save the sale and deduct stock.</p>
+    <p className="counter-preview">Adding items does not reserve stock. Complete checkout to save the sale and deduct stock.</p>
     {checkoutError && <p role="alert" className="auth-error">{checkoutError}</p>}
     <div className="counter-layout">
       <section className="catalogue-panel counter-search" aria-label="Find medicines for sale">
@@ -109,17 +109,18 @@ function CartQuote({ fingerprint, cart, onBegin }: { fingerprint: string; cart: 
     return () => { active = false; window.clearTimeout(timer) }
   }, [fingerprint, refresh, valid])
   useEffect(() => {
-    const timer = window.setInterval(() => { setResult(null); setError(''); setRefresh(v => v + 1) }, 60000)
+    const timer = window.setInterval(() => { setError(''); setRefresh(v => v + 1) }, 60000)
     return () => window.clearInterval(timer)
   }, [])
   return <div className="cart-totals">
-    {!valid ? <p role="alert" className="auth-error">Enter positive whole-number quantities to calculate this cart.</p> : error ? <p role="alert" className="auth-error">{error}</p> : !result ? <p role="status">Checking stock and prices…</p> : <>
+    {error && <p role="alert" className="auth-error">{error}</p>}
+    {!valid ? <p role="alert" className="auth-error">Enter positive whole-number quantities to calculate this cart.</p> : !result ? <p role="status">Checking stock and prices…</p> : <>
       <div className="cart-price-lines">{result.lines.map((line, i) => <div key={i}><p><span>{cart[i].stock.brandName} · {line.baseUnits} {cart[i].stock.baseUnit.toLowerCase()}s · MRP</span><strong>{money(line.lineTotal)}</strong></p>{line.offerName && <p className="secondary"><span>{line.offerName}</span><span>−{money(line.discountAmount)}</span></p>}{line.charges.map(c => <p key={c.id} className="secondary"><span>{c.name}</span><span>+{money(c.amount)}</span></p>)}<p><span>Final price</span><strong>{money(line.finalPrice)}</strong></p></div>)}</div>
       <dl><div><dt>MRP subtotal</dt><dd>{money(result.subtotal)}</dd></div><div><dt>Discounts</dt><dd>−{money(result.discountTotal)}</dd></div><div><dt>Charges</dt><dd>{money(result.chargeTotal)}</dd></div><div><dt>Rounding adjustment{result.roundingAdjustment !== 0 ? result.roundingAdjustment > 0 ? ' (up)' : ' (down)' : ''}</dt><dd>{result.roundingAdjustment > 0 ? '+' : ''}{money(result.roundingAdjustment)}</dd></div><div className="cart-total"><dt>Estimated total</dt><dd>{money(result.estimatedTotal)}</dd></div></dl>
       <p className="field-help">Offers, stock and prices checked at {new Date(result.quotedAt).toLocaleTimeString()}.</p>
-      <CashForm key={`${result.quoteHash}-${refresh}`} total={result.estimatedTotal} quoteHash={result.quoteHash} fingerprint={fingerprint} onBegin={onBegin} />
+      <CashForm total={result.estimatedTotal} quoteHash={result.quoteHash} fingerprint={fingerprint} onBegin={onBegin} />
     </>}
-    <button onClick={() => { setResult(null); setError(''); setRefresh(v => v + 1) }}>Refresh cart prices</button>
+    <button onClick={() => { setError(''); setRefresh(v => v + 1) }}>Refresh cart prices</button>
     <p className="field-help">Stock will be checked again when you complete the sale.</p>
   </div>
 }

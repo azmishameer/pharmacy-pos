@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,6 +17,9 @@ app = package / 'app'
 package.mkdir(parents=True, exist_ok=False)
 
 def run(args, cwd=root):
+    # A Rosetta Python can otherwise install x64 npm bindings into an arm64 Mac checkout.
+    if platform.system() == 'Darwin' and subprocess.run(['/usr/sbin/sysctl', '-n', 'hw.optional.arm64'], capture_output=True, text=True).stdout.strip() == '1':
+        args = ['/usr/bin/arch', '-arm64'] + args
     subprocess.run(args, cwd=cwd, check=True)
 
 npm = ['cmd', '/c', 'npm'] if os.name == 'nt' else ['npm']

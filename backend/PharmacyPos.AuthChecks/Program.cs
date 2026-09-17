@@ -152,6 +152,7 @@ await ChargeProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, 
 await ProfitChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
 await BackupChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services);
 await StockAlertChecks.Run(adminClient, operatorClient, anonymousSalesClient, entryFactory.Services, medicine.requestId);
+await PaymentChecks.Run(adminClient, operatorClient, entryFactory.Services, medicine.requestId);
 await StaffChecks.Run(adminClient, operatorClient, anonymousSalesClient, () => entryFactory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false }));
 
 static async Task<HttpResponseMessage> PostReview(HttpClient client, string url, bool approve, string? note = null) {

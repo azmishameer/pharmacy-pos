@@ -1,14 +1,14 @@
-# Cash checkout
+# Checkout
 
 Apply the additive `CashCheckout` migration, restart the API, and refresh the frontend.
-The Sales counter now supports cash payments, completed sales, stock deductions and
+The Sales counter supports cash and split payments (see [payment methods](payment-methods.md)), completed sales, stock deductions and
 saved receipts. All endpoints remain development-only, matching the existing app.
 
 ## Operator workflow
 
 1. Add the actual batches and quantities being supplied.
 2. Check the MRP, selected offer, charges and final whole-taka total.
-3. Enter cash received, confirm receipt of cash and items, then Complete cash sale.
+3. Enter the payment amounts, any cash received and non-cash references, confirm payment and items, then Complete sale.
 4. Read the saved receipt and change due. Print receipt opens the browser print dialog.
 5. Start new sale clears the completed checkout. Recent sales lets staff re-open and
    reprint their own receipts; admins can view all receipts. Printing never posts a sale.
@@ -27,8 +27,7 @@ Recent sales provides access to server-confirmed receipts after it is lost.
   snapshot. Receipt numbers may have gaps after failed transactions; uniqueness is
   enforced. Receipts use BDT and Bangladesh time.
 - `sale_payments` is separate from the sale, with method, amount applied, tendered cash
-  and change. Only Cash is currently accepted. Card, bKash and Nagad workflows can be
-  added later without replacing the sale model; no payment integration is implied.
+  and change. Cash, Card, bKash and Nagad are supported, including split payments; external transaction references are recorded without gateway integration.
 - `sale_stock_movements` records the outgoing quantity for each receiving lot. Original
   receipt quantities remain untouched. Inventory exposes both original received units
   and current on-hand units; counter availability and expired disposal use the latter.
@@ -40,7 +39,7 @@ Recent sales provides access to server-confirmed receipts after it is lost.
 - Sale, payment and deductions commit together. The unique request ID and fingerprint
   return the original receipt on an identical retry, even after subsequent pricing
   changes. A changed payload or another operator cannot reuse that ID.
-- Cash must cover the rounded payable amount and have at most two decimal places.
+- Cash received must cover the cash portion of the rounded payable amount and have at most two decimal places.
   Zero-payable sales accept zero cash; over-discounts cannot produce negative prices.
 - Snapshot prices, discounts, named charges and rounding do not change when admins
   later change current rules or MRP. No private purchase-cost data is exposed.
@@ -48,7 +47,7 @@ Recent sales provides access to server-confirmed receipts after it is lost.
 ## API
 
 - `POST /api/sales/checkout`: Staff + CSRF; request ID, lot/quantity/unit lines,
-  quote hash and cash received. The client cannot set the final total or payment method.
+  quote hash and payment entries (or the legacy cash-received field). The backend validates payment methods and requires their amounts to equal its calculated total.
 - `GET /api/sales/receipts/{id}`: Staff; own receipt or Admin.
 - `GET /api/sales/receipts?page=1`: paginated own history, all history for Admin.
 - `POST /api/sales/quote` remains read-only and now includes `quoteHash`.
