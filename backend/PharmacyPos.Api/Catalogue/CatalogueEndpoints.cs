@@ -11,6 +11,7 @@ public static class CatalogueEndpoints
         // Catalogue remains a development preview, with server-enforced staff access.
 
         app.MapCatalogueEntry();
+        app.MapBarcodes();
         app.MapCatalogueReview();
         app.MapGet("/api/catalogue/options", () => Results.Ok(new { manufacturers = CatalogueOptions.Manufacturers, forms = CatalogueOptions.Forms, units = Enum.GetNames<StockUnit>() })).RequireAuthorization("Staff");
         app.MapGet("/api/medicines", async (PharmacyDbContext db, string? search,

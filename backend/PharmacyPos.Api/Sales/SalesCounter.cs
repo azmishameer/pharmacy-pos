@@ -23,12 +23,18 @@ public static class SalesCounter
     public static void MapSalesCounter(this WebApplication app)
     {
 
-        app.MapGet("/api/sales/stock", async (string? search, int? page, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
+        app.MapGet("/api/sales/stock", async (string? search, int? page, string? barcode, PharmacyDbContext db, HttpContext http, CancellationToken ct) => {
             http.Response.Headers.CacheControl = "no-store";
             var term = search?.Trim() ?? ""; var n = page ?? 1;
             if (term.Length > 100 || n is < 1 or > 10000) return Results.BadRequest();
             try {
                 var query = Eligible(db, StockReceiving.ShopToday());
+                if (barcode != null) {
+                    var code = barcode.Trim();
+                    var mapping = await db.Set<MedicineBarcode>().AsNoTracking().SingleOrDefaultAsync(b => b.Code == code && b.DisabledAt == null, ct);
+                    if (mapping == null) return Results.NotFound(new { message = "Barcode is unknown or inactive." });
+                    query = query.Where(x => x.Revision.MedicineId == mapping.MedicineId && (mapping.Unit == "Piece" || mapping.Unit == "Strip" && x.Revision.UnitsPerStrip == mapping.Units || mapping.Unit == "Box" && x.Revision.UnitsPerBox == mapping.Units));
+                }
                 if (term.Length > 0) {
                     var pattern = "%" + term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
                     query = query.Where(x => EF.Functions.ILike(x.Revision.Medicine.BrandName, pattern, "\\")

@@ -155,3 +155,11 @@ th, td { padding: 18px 24px; border-top: 1px solid #e5ece8; vertical-align: top;
 .payment-summary { width: 100%; border-collapse: collapse; margin: 1rem 0; }
 .payment-summary th, .payment-summary td { padding: .5rem; text-align: right; border-bottom: 1px solid #ddd; }
 .payment-summary th:first-child, .payment-summary td:first-child { text-align: left; }
+
+.barcode-scan { margin: 1rem 0; padding: 1rem; background: var(--surface, #f3f7f5); border: 1px solid #d9e3df; border-radius: .5rem; }
+.barcode-scan label, .barcode-settings label { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .65rem; }
+.barcode-scan input { font-family: monospace; width: min(100%, 28rem); box-sizing: border-box; }
+.barcode-settings { max-width: 60rem; }
+.barcode-settings fieldset { display: grid; gap: .75rem; margin: 1rem 0; }
+.barcode-settings article { padding: .75rem; border-bottom: 1px solid #d9e3df; overflow-wrap: anywhere; }
+.barcode-settings article button { margin-left: 1rem; }

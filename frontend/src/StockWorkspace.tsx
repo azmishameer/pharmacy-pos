@@ -1,3 +1,4 @@
+import { BarcodeScan } from './Barcodes'
 import { useEffect, useRef, useState } from 'react'
 import { ReceiveStock } from './ReceiveStock'
 import { CorrectMrp, MrpHistory } from './CorrectMrp'
@@ -29,6 +30,7 @@ export function StockWorkspace({ isAdmin, initialMedicineId, onBack }: { isAdmin
     <div className="page-heading"><div><p className="eyebrow">INVENTORY</p><h1>Stock & receiving</h1></div><button onClick={onBack}>Back to medicines</button></div>
     {message && <p role="status" className="save-confirmation">{message}</p>}
     {form ? <ReceiveStock key={form.original?.id ?? form.medicineId} {...form} isAdmin={isAdmin} onCancel={() => setForm(null)} onSaved={text => { setMessage(text); setForm(null); switchTab('receipts'); reload() }} /> : <>
+      <BarcodeScan onFound={row => setForm({ medicineId: row.medicineId })} />
       <p className="field-help">To receive a delivery, find its medicine in the catalogue and select Receive stock.</p>
       <nav className="stock-tabs" aria-label="Stock pages">
         <button aria-pressed={tab === 'inventory'} onClick={() => switchTab('inventory')}>Inventory</button>

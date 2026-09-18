@@ -46,6 +46,13 @@ public sealed class PharmacyDbContext(DbContextOptions<PharmacyDbContext> option
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        var barcode = modelBuilder.Entity<MedicineBarcode>();
+        barcode.ToTable("medicine_barcodes", t => t.HasCheckConstraint("ck_barcode_pack", "\"Units\" > 0 AND \"Units\" <= 1000000 AND \"Unit\" IN ('Piece','Strip','Box') AND (\"Unit\" <> 'Piece' OR \"Units\" = 1)"));
+        barcode.HasKey(b => b.Id); barcode.Property(b => b.Code).HasMaxLength(100); barcode.HasIndex(b => b.Code).IsUnique();
+        barcode.Property(b => b.Unit).HasMaxLength(10);
+        barcode.HasOne(b => b.Medicine).WithMany().HasForeignKey(b => b.MedicineId).OnDelete(DeleteBehavior.Restrict);
+        barcode.HasOne<IdentityUser>().WithMany().HasForeignKey(b => b.CreatedBy).OnDelete(DeleteBehavior.Restrict);
+        barcode.HasOne<IdentityUser>().WithMany().HasForeignKey(b => b.DisabledBy).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.MapStock();
         modelBuilder.MapStockAlertData();
         modelBuilder.MapBackupData();

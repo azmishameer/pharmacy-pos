@@ -1,0 +1,23 @@
+import { useRef, useState } from 'react'
+import { stockGet, stockPost } from './stockApi'
+export type Barcode = { id: string; code: string; medicineId: string; unit: string; units: number; brandName: string; disabledAt?: string }
+export function BarcodeScan({ onFound }: { onFound: (row: Barcode) => void }) {
+  const [code, setCode] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null), running = useRef(false)
+  return <form className="barcode-scan" onSubmit={async e => { e.preventDefault(); if (running.current) return; running.current = true; setBusy(true); setError(''); try { const row = await stockGet<Barcode>(`/api/barcodes/lookup?${new URLSearchParams({ code: code.trim() })}`); onFound(row); setCode('') } catch (e) { setError(e instanceof Error ? e.message : 'Scan failed.') } finally { running.current = false; setBusy(false); input.current?.focus() } }}>
+    <label>Scan product barcode<input ref={input} value={code} maxLength={100} required autoComplete="off" spellCheck={false} onChange={e => setCode(e.target.value)} /></label><button disabled={busy}>{busy ? 'Looking up…' : 'Find barcode'}</button>
+    <p className="field-help">Click the barcode field, scan with a USB scanner configured to send Enter, or type the barcode and press Enter. Leading zeros are preserved.</p>{error && <p role="alert" className="auth-error">{error}</p>}
+  </form>
+}
+export function BarcodeSettings({ onBack }: { onBack: () => void }) {
+  const [search, setSearch] = useState(''), [medicines, setMedicines] = useState<{ id: string; brandName: string; manufacturer: string; ingredients: {name: string; strengthValue: number; strengthUnit: string}[] }[]>([])
+  const [medicine, setMedicine] = useState(''), [rows, setRows] = useState<Barcode[]>([]), [code, setCode] = useState(''), [unit, setUnit] = useState('Piece'), [units, setUnits] = useState('1'), [error, setError] = useState(''), [busy, setBusy] = useState(false)
+  async function load(id: string) { setRows(await stockGet<Barcode[]>(`/api/barcodes?medicineId=${id}`)) }
+  return <section className="barcode-settings"><h1>Medicine barcodes</h1><button onClick={onBack}>Back to catalogue</button><p>Register the barcode printed on the exact medicine and pack. A box barcode is different from an individual tablet barcode. Retired codes remain in the audit history and cannot be reassigned.</p>
+    <form onSubmit={async e => { e.preventDefault(); setError(''); try { setMedicines((await stockGet<{items: typeof medicines}>(`/api/medicines?${new URLSearchParams({search})}`)).items) } catch(e) {setError(String(e))} }}><label>Find medicine<input required maxLength={100} value={search} onChange={e => setSearch(e.target.value)} /></label><button>Search medicines</button></form>
+    {medicines.map(m => <button disabled={busy} key={m.id} onClick={async () => {setMedicine(m.id); setRows([]); setError(''); try {await load(m.id)} catch(e) {setError(String(e))} }}>{m.brandName} · {m.ingredients.map(i => `${i.name} ${i.strengthValue} ${i.strengthUnit}`).join(' + ')} · {m.manufacturer}</button>)}
+    {medicine && <><h2>{medicines.find(m => m.id === medicine)?.brandName}</h2><form onSubmit={async e => {e.preventDefault(); setBusy(true); setError(''); try {await stockPost('/api/barcodes',{medicineId: medicine,code,unit,units:Number(units)}); setCode(''); await load(medicine)} catch(e) {setError(String(e))} finally {setBusy(false)} }}><fieldset disabled={busy}><legend>Register barcode</legend><label>Barcode<input required maxLength={100} autoComplete="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => {if(e.key === 'Enter') e.preventDefault()}} /></label><label>Pack type<select value={unit} onChange={e => {setUnit(e.target.value);setUnits('1')}}><option value="Piece">Individual piece / bottle / tube</option><option>Strip</option><option>Box</option></select></label><label>Individual stock units in this pack<input required type="number" min="1" max="1000000" step="1" disabled={unit==='Piece'} value={units} onChange={e => setUnits(e.target.value)} /></label><button>Save barcode</button></fieldset></form>
+    {rows.map(r => <article key={r.id}><strong>{r.code}</strong> · {r.unit} · {r.units} stock units · {r.disabledAt ? 'Retired' : 'Active'}{!r.disabledAt && <button disabled={busy} onClick={async () => {setBusy(true); try {await stockPost(`/api/barcodes/${r.id}/disable`,{});await load(medicine)} catch(e) {setError(String(e))} finally {setBusy(false)} }}>Retire {r.code}</button>}</article>)}</>}
+    {error && <p role="alert" className="auth-error">{error}</p>}
+  </section>
+}

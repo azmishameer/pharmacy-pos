@@ -1,3 +1,5 @@
+import { BarcodeScan } from './Barcodes'
+import type { Barcode } from './Barcodes'
 import { StockAlerts } from './StockAlerts'
 import { useEffect, useState } from 'react'
 import { ReturnsWorkspace } from './ReturnsWorkspace'
@@ -19,6 +21,8 @@ export function SalesCounter({ onBack, username, roles }: { onBack: () => void; 
   })
   const [history, setHistory] = useState(false), [checkoutError, setCheckoutError] = useState('')
   const [search, setSearch] = useState(''), [page, setPage] = useState(1), [refresh, setRefresh] = useState(0)
+  const [scanned, setScanned] = useState<Barcode | null>(null)
+  const [scanNumber, setScanNumber] = useState(0)
   const [cart, setCart] = useState<CartRow[]>([])
   const [message, setMessage] = useState('')
   function add(stock: Stock, unit: string, quantity: number) {
@@ -47,9 +51,11 @@ export function SalesCounter({ onBack, username, roles }: { onBack: () => void; 
     {checkoutError && <p role="alert" className="auth-error">{checkoutError}</p>}
     <div className="counter-layout">
       <section className="catalogue-panel counter-search" aria-label="Find medicines for sale">
-        <div className="toolbar"><div className="search-form"><label htmlFor="counter-search">Search medicine, ingredient or manufacturer</label><div className="search-controls"><input id="counter-search" type="search" autoFocus maxLength={100} placeholder="e.g. Jardimet or metformin" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /><button onClick={() => setRefresh(v => v + 1)}>Refresh stock</button></div></div></div>
+        <BarcodeScan onFound={row => { setScanned(row); setScanNumber(n => n + 1); setSearch(''); setPage(1) }} />
+        {scanned && <p role="status">Scanned {scanned.brandName}: {scanned.unit}, {scanned.units} stock units. Confirm the batch below.<button onClick={() => {setScanned(null);setPage(1)}}>Clear barcode filter</button></p>}
+        <div className="toolbar"><div className="search-form"><label htmlFor="counter-search">Search medicine, ingredient or manufacturer</label><div className="search-controls"><input id="counter-search" type="search" autoFocus maxLength={100} placeholder="e.g. Jardimet or metformin" value={search} onChange={e => { setSearch(e.target.value); setScanned(null); setPage(1) }} /><button onClick={() => setRefresh(v => v + 1)}>Refresh stock</button></div></div></div>
         <p className="result-summary">Sellable batches only · earliest expiry first. Select the batch you will supply.</p>
-        <StockSearch key={`${search}-${page}-${refresh}`} search={search} page={page} onPage={setPage} onAdd={add} disabled={cart.length >= 100} />
+        <StockSearch key={`${search}-${page}-${refresh}-${scanNumber}`} barcode={scanned?.code} initialUnit={scanned?.unit} search={search} page={page} onPage={setPage} onAdd={add} disabled={cart.length >= 100} />
       </section>
       <section className="catalogue-panel counter-cart" aria-label="Sales cart">
         <div className="cart-heading"><h2>Customer cart</h2>{cart.length > 0 && <button onClick={() => { setCart([]); setMessage('Cart cleared.') }}>Clear cart</button>}</div>
@@ -65,24 +71,24 @@ export function SalesCounter({ onBack, username, roles }: { onBack: () => void; 
     </div>
   </>
 }
-function StockSearch({ search, page, onPage, onAdd, disabled }: { search: string; page: number; onPage: (page: number) => void; onAdd: (stock: Stock, unit: string, quantity: number) => void; disabled: boolean }) {
+function StockSearch({ search, page, onPage, onAdd, disabled, barcode, initialUnit }: { barcode?: string; initialUnit?: string; search: string; page: number; onPage: (page: number) => void; onAdd: (stock: Stock, unit: string, quantity: number) => void; disabled: boolean }) {
   const [result, setResult] = useState<{ items: Stock[]; hasMore: boolean } | null>(null), [error, setError] = useState('')
   useEffect(() => {
     const controller = new AbortController()
-    const load = () => void stockGet<{ items: Stock[]; hasMore: boolean }>(`/api/sales/stock?${new URLSearchParams({ search, page: String(page) })}`, controller.signal).then(data => { setResult(data); setError('') }).catch(e => { if (!controller.signal.aborted) setError(e.message) })
+    const load = () => void stockGet<{ items: Stock[]; hasMore: boolean }>(`/api/sales/stock?${new URLSearchParams({ search, page: String(page), ...(barcode ? {barcode} : {}) })}`, controller.signal).then(data => { setResult(data); setError('') }).catch(e => { if (!controller.signal.aborted) setError(e.message) })
     const debounce = window.setTimeout(load, 200), timer = window.setInterval(load, 60000)
     return () => { controller.abort(); window.clearTimeout(debounce); window.clearInterval(timer) }
-  }, [search, page])
+  }, [search, page, barcode])
   if (error) return <p className="auth-error" role="alert">{error}</p>
   if (!result) return <p className="notice" role="status">Finding available medicines…</p>
   return <>
     {result.items.length === 0 && <div className="notice"><h3>No sellable batches found</h3><p>Try a different search or check stock approval, expiry and MRP verification.</p></div>}
-    {result.items.map(stock => <StockCard key={stock.lotId} stock={stock} onAdd={onAdd} disabled={disabled} />)}
+    {result.items.map(stock => <StockCard key={stock.lotId} stock={stock} initialUnit={initialUnit} onAdd={onAdd} disabled={disabled} />)}
     {(page > 1 || result.hasMore) && <nav className="pagination" aria-label="Sales search pages"><button disabled={page === 1} onClick={() => onPage(page - 1)}>Previous</button><span>Page {page}</span><button disabled={!result.hasMore} onClick={() => onPage(page + 1)}>Next</button></nav>}
   </>
 }
-function StockCard({ stock, onAdd, disabled }: { stock: Stock; onAdd: (stock: Stock, unit: string, quantity: number) => void; disabled: boolean }) {
-  const [unit, setUnit] = useState('Piece'), [quantity, setQuantity] = useState('1')
+function StockCard({ stock, onAdd, disabled, initialUnit }: { initialUnit?: string; stock: Stock; onAdd: (stock: Stock, unit: string, quantity: number) => void; disabled: boolean }) {
+  const [unit, setUnit] = useState(initialUnit ?? 'Piece'), [quantity, setQuantity] = useState('1')
   const pack = unit === 'Piece' ? 1 : unit === 'Strip' ? stock.unitsPerStrip : stock.unitsPerBox
   return <article className="counter-product">
     <div className="product-title"><h3>{stock.brandName}</h3><span className={`badge ${stock.classification === 'Prescription' ? 'prescription' : 'otc'}`}>{stock.classification === 'Prescription' ? 'Prescription' : 'OTC'}</span></div>
