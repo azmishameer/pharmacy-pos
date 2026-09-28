@@ -163,3 +163,5 @@ th, td { padding: 18px 24px; border-top: 1px solid #e5ece8; vertical-align: top;
 .barcode-settings fieldset { display: grid; gap: .75rem; margin: 1rem 0; }
 .barcode-settings article { padding: .75rem; border-bottom: 1px solid #d9e3df; overflow-wrap: anywhere; }
 .barcode-settings article button { margin-left: 1rem; }
+
+.demo-banner {margin:0; padding:.65rem; text-align:center; background:#fff1c9; color:#624700; font-weight:600;}

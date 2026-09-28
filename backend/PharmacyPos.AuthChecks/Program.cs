@@ -34,6 +34,9 @@ using (var scope = factory.Services.CreateScope())
     }
 }
 Assert((await client.GetAsync("/api/medicines")).StatusCode == HttpStatusCode.Unauthorized, "anonymous catalogue blocked");
+Assert((await client.PostAsJsonAsync("/api/demo/login/admin", new {})).StatusCode == HttpStatusCode.NotFound, "password-free demo route absent outside Demo");
+var invalidDemo = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> {{"ConnectionStrings:Pharmacy", "Host=localhost;Database=pharmacy_pos_dev;Username=pharmacy_app"}}).Build();
+try { PharmacyPos.Api.Demo.DemoMode.Validate(invalidDemo); throw new Exception("Demo accepted real database configuration"); } catch (InvalidOperationException) { }
 var session = await Session(client);
 Assert(session.GetProperty("user").ValueKind == JsonValueKind.Null, "anonymous session");
 Assert((await client.PostAsJsonAsync("/api/auth/login", new { username = "operator-test", password = "Temporary-Test!123" })).StatusCode == HttpStatusCode.BadRequest, "login requires CSRF token");

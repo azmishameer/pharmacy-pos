@@ -1,0 +1,33 @@
+name: pharmacy-pos-demo
+services:
+  database:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: pharmacy_pos_demo
+      POSTGRES_USER: pharmacy_demo
+      # Public, disposable DEMO database only. No host database port is exposed.
+      POSTGRES_PASSWORD: demo-only-not-for-real-data
+    volumes:
+      - demo-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pharmacy_demo -d pharmacy_pos_demo"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  app:
+    build:
+      context: .
+      dockerfile: deployment/demo/Dockerfile
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Demo
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Pharmacy: Host=database;Database=pharmacy_pos_demo;Username=pharmacy_demo
+      Database__Password: demo-only-not-for-real-data
+      Backup__AutomaticEnabled: "false"
+    depends_on:
+      database:
+        condition: service_healthy
+volumes:
+  demo-db:

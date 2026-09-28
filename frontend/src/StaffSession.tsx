@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 
 type StaffUser = { username: string; roles: string[] }
-type Session = { csrfToken: string; user: StaffUser | null }
+type Session = { demo?: boolean; csrfToken: string; user: StaffUser | null }
 
 async function fetchSession(): Promise<Session> {
   const response = await fetch('/api/auth/session', { cache: 'no-store', signal: AbortSignal.timeout(10000) })
@@ -50,6 +50,15 @@ export function StaffSession({ children }: {
     } finally { setBusy(false) }
   }
 
+  async function demoSignIn(role: string) {
+    setBusy(true); setError('');
+    try {
+      const current = await fetchSession();
+      const r = await fetch(`/api/demo/login/${role}`, {method:'POST',headers:{'X-CSRF-TOKEN':current.csrfToken}});
+      if (!r.ok) throw new Error('Demo sign-in failed. Please retry.');
+      setSession(await fetchSession());
+    } catch(e) {setError(e instanceof Error ? e.message : 'Demo unavailable.')} finally {setBusy(false)}
+  }
   async function signOut() {
     if (busy) return
     setBusy(true)
@@ -69,6 +78,7 @@ export function StaffSession({ children }: {
 
   if (session?.user) return <>
     {error && <p className="auth-error" role="alert">{error}</p>}
+    {session.demo && <p className="demo-banner">DEMO · Fictional data only · No real payments · Sign out to switch roles</p>}
     {children(session.user, () => { void signOut() })}
   </>
 
@@ -78,7 +88,8 @@ export function StaffSession({ children }: {
       <p className="eyebrow">PHARMACY POS</p>
       <h1 id="sign-in-heading">Staff sign-in</h1>
       <p className="subtitle">Use your pharmacy staff account to continue.</p>
-      {!session && !error ? <p role="status">Checking your session…</p> : <form onSubmit={signIn}>
+      {session?.demo && <div><p>Explore a fictional pharmacy. No password needed.</p><button disabled={busy} onClick={() => void demoSignIn('admin')}>Try as admin</button><button disabled={busy} onClick={() => void demoSignIn('operator')}>Try as operator</button></div>}
+      {!session && !error ? <p role="status">Checking your session…</p> : session?.demo ? (error && <p role="alert">{error}</p>) : <form onSubmit={signIn}>
         <label htmlFor="username">Username</label>
         <input id="username" autoComplete="username" required maxLength={256} value={username} onChange={event => setUsername(event.target.value)} />
         <label htmlFor="password">Password</label>

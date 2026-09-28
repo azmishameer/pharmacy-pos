@@ -23,10 +23,10 @@ public static class StaffAuthentication
         builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
         builder.Services.ConfigureApplicationCookie(options =>
         {
-            options.Cookie.Name = "PharmacyPos.Session";
+            options.Cookie.Name = PharmacyPos.Api.Demo.DemoMode.Enabled(builder.Environment) ? "PharmacyPos.Demo.Session" : "PharmacyPos.Session";
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Strict;
-            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            options.Cookie.SecurePolicy = (builder.Environment.IsDevelopment() || PharmacyPos.Api.Demo.DemoMode.Enabled(builder.Environment))
                 ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
             options.SlidingExpiration = true;
@@ -49,9 +49,9 @@ public static class StaffAuthentication
         builder.Services.AddAntiforgery(options =>
         {
             options.HeaderName = "X-CSRF-TOKEN";
-            options.Cookie.Name = "PharmacyPos.Antiforgery";
+            options.Cookie.Name = PharmacyPos.Api.Demo.DemoMode.Enabled(builder.Environment) ? "PharmacyPos.Demo.Antiforgery" : "PharmacyPos.Antiforgery";
             options.Cookie.SameSite = SameSiteMode.Strict;
-            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            options.Cookie.SecurePolicy = (builder.Environment.IsDevelopment() || PharmacyPos.Api.Demo.DemoMode.Enabled(builder.Environment))
                 ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
         });
         builder.Services.AddRateLimiter(options =>
@@ -80,6 +80,7 @@ public static class StaffAuthentication
             return Results.Ok(new
             {
                 csrfToken = token,
+                demo = PharmacyPos.Api.Demo.DemoMode.Enabled(app.Environment),
                 user = user is null ? null : new { username = user.UserName, roles = await users.GetRolesAsync(user) }
             });
         }).AllowAnonymous();

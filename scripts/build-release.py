@@ -32,6 +32,8 @@ shutil.copytree(root / 'frontend/dist', app / 'wwwroot', dirs_exist_ok=True)
 for source in (root / 'deployment/windows').iterdir():
     if source.is_file(): shutil.copy2(source, package / source.name)
 shutil.copy2(root / 'docs/windows-deployment.md', package / 'README.md')
+shutil.copy2(root / 'LICENSE', package / 'LICENSE')
+shutil.copy2(root / 'docs/demo.md', package / 'DEMO.md')
 files = {}
 for path in sorted(package.rglob('*')):
     if path.is_file():

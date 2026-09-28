@@ -1,0 +1,11 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/dist
+artifacts
+backups
+portfolio
+**/*.pfx
+**/*.dump
+**/appsettings.Local.json

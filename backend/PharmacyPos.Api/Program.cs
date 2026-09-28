@@ -1,3 +1,4 @@
+using PharmacyPos.Api.Demo;
 using Microsoft.AspNetCore.DataProtection;
 using PharmacyPos.Api.Maintenance;
 using PharmacyPos.Api.Returns;
@@ -20,6 +21,11 @@ var builder = WebApplication.CreateBuilder(args.Where(x => x != "--create-admin"
 var deploymentConfig = Environment.GetEnvironmentVariable("PHARMACY_CONFIG");
 if (!string.IsNullOrWhiteSpace(deploymentConfig))
     builder.Configuration.AddJsonFile(Path.GetFullPath(deploymentConfig), optional: false, reloadOnChange: false).AddEnvironmentVariables();
+if (DemoMode.Enabled(builder.Environment)) {
+    if (!string.IsNullOrWhiteSpace(deploymentConfig)) throw new InvalidOperationException("Demo mode cannot use installation configuration.");
+    DemoMode.Validate(builder.Configuration);
+    builder.Configuration["Backup:AutomaticEnabled"] = "false";
+}
 builder.Host.UseWindowsService(options => options.ServiceName = "PharmacyPos");
 var keysDirectory = builder.Configuration["DataProtection:Directory"];
 if (!string.IsNullOrWhiteSpace(keysDirectory)) {
@@ -78,12 +84,23 @@ if (app.Environment.IsDevelopment())
 }
 
 if (!app.Environment.IsDevelopment()) app.UseHsts();
-app.UseHttpsRedirection();
+if (!DemoMode.Enabled(app.Environment)) app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+if (DemoMode.Enabled(app.Environment)) {
+    await DemoMode.Initialize(app.Services);
+    app.Use(async (context, next) => {
+        // Demo role accounts must remain available; backup tools need host access not shipped in the demo.
+        if (context.Request.Path.StartsWithSegments("/api/staff") && !HttpMethods.IsGet(context.Request.Method)) {
+            context.Response.StatusCode = 403; await context.Response.WriteAsJsonAsync(new {message="Account changes are disabled in the shared demo."}); return;
+        }
+        await next();
+    });
+}
+app.MapDemo();
 app.MapStaffAuthentication();
 app.MapAutomaticBackups();
 app.MapStaffManagement();
